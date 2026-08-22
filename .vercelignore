@@ -1,0 +1,13 @@
+.venv/
+output/
+__pycache__/
+.transcript_cache/
+.DS_Store
+*.zip
+*.py
+*.bat
+*.command
+*.spec
+requirements.txt
+templates/
+windows_setup_guide.md
