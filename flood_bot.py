@@ -536,11 +536,16 @@ def download_youtube(url: str, out_dir: str = ".") -> Optional[str]:
     if not os.path.exists(ytdlp):
         ytdlp = "yt-dlp"
 
-    # Setup environment with ~/bin in PATH for ffmpeg
+    # Setup environment with ~/bin and common Mac binary paths in PATH
     env = os.environ.copy()
-    ffmpeg_dir = os.path.expanduser("~/bin")
-    if os.path.exists(ffmpeg_dir):
-        env["PATH"] = ffmpeg_dir + os.pathsep + env.get("PATH", "")
+    paths = [
+        os.path.expanduser("~/bin"),
+        "/usr/local/bin",
+        "/opt/homebrew/bin", # Homebrew on Apple Silicon
+    ]
+    path_addons = [p for p in paths if os.path.exists(p)]
+    if path_addons:
+        env["PATH"] = os.pathsep.join(path_addons) + os.pathsep + env.get("PATH", "")
 
     out_template = os.path.join(out_dir, "%(title).60s.%(ext)s")
     cmd_base = [
