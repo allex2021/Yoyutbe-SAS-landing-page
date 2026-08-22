@@ -557,6 +557,23 @@ def download_youtube(url: str, out_dir: str = ".") -> Optional[str]:
         "--no-playlist",
     ]
 
+    # Explicitly configure Node.js runtime if available to prevent warning messages
+    node_exe = None
+    for p in ["/usr/local/bin/node", "/opt/homebrew/bin/node"]:
+        if os.path.exists(p):
+            node_exe = p
+            break
+    if node_exe:
+        cmd_base.extend(["--js-runtimes", f"node:{node_exe}"])
+
+    # Anti-bot bypass configurations (resolves HTTP 403 Forbidden)
+    cmd_base.extend([
+        "--extractor-args", "youtube:player-client=ios,android,web_creator",
+        "--user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "--referer", "https://www.youtube.com/",
+        "--no-cache-dir",
+    ])
+
     cookie_fallback = [
         ["--cookies-from-browser", "chrome"],
         ["--cookies-from-browser", "safari"],
