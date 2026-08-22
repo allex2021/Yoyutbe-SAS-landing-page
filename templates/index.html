@@ -1,0 +1,2742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>FloodBot v3.0 — YouTube Shorts Automation</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+    
+    :root {
+      --bg: #070913;
+      --bg2: #0d111f;
+      --bg3: #13192f;
+      --glass: rgba(13, 17, 31, 0.7);
+      --border: rgba(0, 255, 136, 0.15);
+      --border-hover: rgba(0, 255, 136, 0.35);
+      --r: #00ff88;
+      --p: #00e5ff;
+      --b: #00aa66;
+      --g: #00ff88;
+      --y: #33ffb3;
+      --o: #00e5ff;
+      --text: #e2f0ed;
+      --muted: #647b9b;
+      --radius: 12px;
+      --rsm: 6px;
+      --glow: 0 0 20px rgba(0, 255, 136, 0.15);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(0, 255, 136, 0.04) 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(0, 229, 255, 0.04) 0%, transparent 45%),
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+      background-size: 100% 100%, 100% 100%, 100% 4px;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.01);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 136, 0.15);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 255, 136, 0.35);
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 30px;
+      background: rgba(13, 17, 31, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, var(--r), var(--p));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 0 25px rgba(0, 255, 136, 0.4);
+    }
+    .logo h1 {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: white;
+      text-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+    }
+    .logo span {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .badge {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-g {
+      background: rgba(0, 255, 136, 0.06);
+      color: var(--g);
+      border: 1px solid rgba(0, 255, 136, 0.25);
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.1);
+    }
+    .badge-r {
+      background: rgba(255, 69, 58, 0.08);
+      color: #ff453a;
+      border: 1px solid rgba(255, 69, 58, 0.25);
+    }
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ── Stat cards ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 768px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .stat:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px 0 rgba(0, 255, 136, 0.08);
+    }
+    .stat-v {
+      font-size: 32px;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--r), var(--p));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat-l {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 800;
+    }
+
+    /* ── Layout grid ── */
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 992px) {
+      .grid2 { grid-template-columns: 1fr; }
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+      position: relative;
+      transition: border-color 0.3s ease;
+    }
+    .card:hover {
+      border-color: rgba(0, 255, 136, 0.25);
+    }
+    .card-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 14px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: white;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Job accordion ── */
+    .job-card {
+      background: rgba(13, 17, 31, 0.4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      overflow: hidden;
+      animation: fadeIn 0.3s ease;
+      transition: all 0.25s ease;
+    }
+    .job-card:hover {
+      border-color: var(--border-hover);
+      box-shadow: 0 4px 15px rgba(0, 255, 136, 0.05);
+    }
+    .job-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .job-head:hover {
+      background: rgba(0, 255, 136, 0.02);
+    }
+    .job-num {
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--muted);
+      min-width: 24px;
+    }
+    .job-name {
+      font-size: 14px;
+      font-weight: 700;
+      flex: 1;
+      margin: 0 12px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: #fff;
+    }
+    .job-body {
+      padding: 20px;
+      border-top: 1px solid var(--border);
+      display: none;
+      background: rgba(7, 10, 19, 0.4);
+    }
+    .job-body.open {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Form controls ── */
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    input[type=text], input[type=number], input[type=password], select, textarea {
+      width: 100%;
+      background: rgba(7, 9, 19, 0.6);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text);
+      padding: 12px 16px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.25s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--r);
+      box-shadow: 0 0 12px rgba(0, 255, 136, 0.25);
+      background: rgba(7, 9, 19, 0.85);
+    }
+    input:disabled, select:disabled, textarea:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    select option {
+      background: #0d111f;
+      color: white;
+    }
+    .frow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .frow3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .f1 {
+      margin-bottom: 14px;
+    }
+
+    /* ── Toggle ── */
+    .trow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      margin-bottom: 16px;
+    }
+    .tlbl {
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+    }
+    .tsub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .tslider {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: 0.3s;
+      border: 1px solid var(--border);
+    }
+    .tslider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #5c708a;
+      top: 3px;
+      left: 3px;
+      transition: 0.3s;
+    }
+    .toggle input:checked + .tslider {
+      background: rgba(0, 255, 136, 0.15);
+      border-color: var(--r);
+    }
+    .toggle input:checked + .tslider::before {
+      transform: translateX(20px);
+      background: var(--r);
+      box-shadow: 0 0 10px var(--r);
+    }
+
+    /* ── Color swatches ── */
+    .swatches {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .swatch {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s, border-color 0.2s;
+      flex-shrink: 0;
+    }
+    .swatch:hover {
+      transform: scale(1.18);
+    }
+    .swatch.active {
+      border-color: white;
+      transform: scale(1.18);
+      box-shadow: 0 0 12px currentColor;
+    }
+    .swatch-yellow { background: #FFD700; color: #FFD700; }
+    .swatch-white { background: #FFFFFF; color: #FFFFFF; }
+    .swatch-red { background: #FF3B30; color: #FF3B30; }
+    .swatch-pink { background: #FF69B4; color: #FF69B4; }
+    .swatch-blue { background: #0A84FF; color: #0A84FF; }
+    .swatch-green { background: #30D158; color: #30D158; }
+    .swatch-orange { background: #FF9F0A; color: #FF9F0A; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .btn-r {
+      background: linear-gradient(135deg, var(--r), var(--p));
+      color: #02050b;
+      box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+    }
+    .btn-r:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(0, 255, 136, 0.5);
+      filter: brightness(1.08);
+    }
+    .btn-p {
+      background: linear-gradient(135deg, #0088ff, var(--p));
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(0, 229, 255, 0.3);
+    }
+    .btn-p:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(0, 229, 255, 0.5);
+      filter: brightness(1.08);
+    }
+    .btn-b {
+      background: rgba(0, 255, 136, 0.05);
+      color: #00ff88;
+      border: 1px solid rgba(0, 255, 136, 0.35);
+    }
+    .btn-b:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+      background: rgba(0, 255, 136, 0.12);
+    }
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+    .btn-danger {
+      background: rgba(255, 69, 58, 0.08);
+      color: #ff5b52;
+      border: 1px solid rgba(255, 69, 58, 0.25);
+      padding: 8px 14px;
+      font-size: 12px;
+    }
+    .btn-danger:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 0 15px rgba(255, 69, 58, 0.35);
+      background: rgba(255, 69, 58, 0.18);
+    }
+    .btn-sm {
+      padding: 8px 14px;
+      font-size: 12px;
+      border-radius: var(--rsm);
+    }
+    .btn-full {
+      width: 100%;
+    }
+    .gap8 { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mt12 { margin-top: 12px; }
+    .mt16 { margin-top: 16px; }
+
+    /* ── Hook badge ── */
+    .hook-active {
+      background: linear-gradient(135deg, rgba(255, 159, 10, 0.12), rgba(255, 45, 85, 0.12));
+      border: 1px solid rgba(255, 159, 10, 0.3);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--o);
+      margin-bottom: 14px;
+      display: none;
+    }
+    .hook-active.show {
+      display: block;
+    }
+
+    /* ── Drag & Drop zone ── */
+    .drop-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius);
+      padding: 28px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      margin-bottom: 12px;
+      background: rgba(255, 255, 255, 0.01);
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--r);
+      background: rgba(0, 255, 136, 0.04);
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.05);
+    }
+    .drop-zone-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+    .drop-zone-text {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .drop-zone-text strong {
+      color: var(--text);
+    }
+
+    /* ── Video info chip ── */
+    .vinfo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(0, 229, 255, 0.05);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 12px;
+      animation: fadeIn 0.3s ease;
+    }
+    .vinfo-thumb {
+      width: 64px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+      background: #000;
+    }
+    .vinfo-details {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .vinfo-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 3px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      max-width: 240px;
+    }
+
+    /* ── File grid (directory scan) ── */
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .file-tile {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .file-tile:hover {
+      background: rgba(0, 229, 255, 0.08);
+      border-color: var(--p);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 229, 255, 0.08);
+    }
+    .file-tile-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .file-tile-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .file-tile-size {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Video Player Modal ── */
+    .player-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 4, 9, 0.95);
+      z-index: 9000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .player-modal.open {
+      display: flex;
+    }
+    .player-modal video {
+      max-width: 90vw;
+      max-height: 80vh;
+      border-radius: 16px;
+      box-shadow: 0 0 80px rgba(0, 255, 136, 0.15);
+      border: 1px solid var(--border);
+    }
+    .player-modal-close {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      font-size: 32px;
+      cursor: pointer;
+      color: white;
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .player-modal-close:hover {
+      background: rgba(255, 69, 58, 0.2);
+      color: #ff453a;
+    }
+
+    /* ── Scan dir input row ── */
+    .scan-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .scan-row input {
+      flex: 1;
+    }
+
+    /* ── Console ── */
+    .console {
+      background: #05060b;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      height: 320px;
+      overflow-y: auto;
+      padding: 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.8;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    }
+    .console::-webkit-scrollbar {
+      width: 6px;
+    }
+    .console::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 136, 0.15);
+      border-radius: 999px;
+    }
+    .log-info { color: #8fa0bd; }
+    .log-success { color: var(--g); text-shadow: 0 0 5px rgba(0,255,136,0.3); }
+    .log-error { color: #ff5b52; text-shadow: 0 0 5px rgba(255,91,82,0.3); }
+    .log-warn { color: var(--y); }
+    .log-ts { color: #3b4c68; margin-right: 10px; font-weight: 700; }
+
+    /* ── Progress ── */
+    .prog-wrap {
+      margin-top: 16px;
+      display: none;
+    }
+    .prog-wrap.vis {
+      display: block;
+    }
+    .prog-lbl {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+    }
+    .prog-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.01);
+    }
+    .prog-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--r), var(--p), var(--b));
+      width: 0%;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px var(--r);
+    }
+
+    /* ── Output files ── */
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      animation: fadeIn 0.3s ease;
+      transition: all 0.2s;
+    }
+    .file-item:hover {
+      background: rgba(0, 255, 136, 0.02);
+      border-color: rgba(0, 255, 136, 0.25);
+    }
+    .file-name {
+      font-weight: 700;
+      font-size: 13.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+    }
+    .file-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Modal ── */
+    .modal-ov {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 4, 9, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-ov.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 580px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      transform: scale(0.96);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 20px 50px rgba(0, 255, 136, 0.1);
+    }
+    .modal-ov.open .modal {
+      transform: scale(1);
+    }
+    .modal pre {
+      background: #05060b;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      color: #b8c6dc;
+      overflow-y: auto;
+      max-height: 380px;
+      line-height: 1.7;
+    }
+
+    /* ── Section label ── */
+    .slbl {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .slbl::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .full {
+      grid-column: 1 / -1;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <!-- Header -->
+  <header style="border-bottom:1px solid rgba(0,255,0,0.25)">
+    <div class="hdr">
+      <div class="logo">
+        <div class="logo-icon" style="background:#00ff00;color:#000;box-shadow:0 0 14px rgba(0,255,0,0.6)">🔥</div>
+        <div>
+          <h1 style="color:#00ff00;text-shadow:0 0 8px rgba(0,255,0,0.4)">+FloodBot by cyber2</h1>
+          <span style="color:var(--muted)">Shorts Automation Suite v4.0 Pro Edition</span>
+        </div>
+      </div>
+      <div id="sysBadge" class="badge badge-g"><span class="pulse"></span> ONLINE [CYBER2-CORE]</div>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat" style="border:1px solid var(--border)"><div class="stat-v" id="sTotal" style="color:var(--r)">0</div><div class="stat-l">Videos Done</div></div>
+    <div class="stat" style="border:1px solid var(--border)"><div class="stat-v" id="sJobs" style="color:var(--r)">0</div><div class="stat-l">Jobs Queued</div></div>
+    <div class="stat" style="border:1px solid var(--border)"><div class="stat-v" id="sSize" style="color:var(--r)">0 MB</div><div class="stat-l">Output Size</div></div>
+    <div class="stat" style="border:1px solid var(--border)"><div class="stat-v" id="sLang" style="color:var(--r)">EN</div><div class="stat-l">Caption Lang</div></div>
+  </div>
+
+  <!-- cyber2 Software License Key -->
+  <div class="card" style="margin-bottom:20px;background:rgba(0,255,136,0.02);border:1px solid rgba(0,255,136,0.3)">
+    <div style="padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🛡️</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--r)">cyber2 Software License</div>
+          <div style="font-size:11px;color:var(--muted)">Input your activation key to unlock Pro features. Status: <strong id="licStatus" style="color:var(--r)">FREE_DEMO</strong></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex:1;max-width:550px;min-width:300px">
+        <input type="text" id="licenseKey" placeholder="Enter license key (e.g. CYBER2-XXXX-...)" style="flex:1;background:rgba(15,21,36,0.5);border:1px solid rgba(0,255,136,0.35);color:var(--r);padding:8px 12px;border-radius:var(--rsm);font-size:12px" />
+        <button class="btn btn-r btn-sm" onclick="activateLicense()">Activate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemini API Key (Optional) -->
+  <div class="card" style="margin-bottom:20px;background:rgba(0,255,136,0.02);border:1px dashed var(--border)">
+    <div style="padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🔑</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:white">Gemini AI Key (Optional)</div>
+          <div style="font-size:11px;color:var(--muted)">Unlocks advanced AI Hook Detection and automatic content-aware titles/hashtags!</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex:1;max-width:550px;min-width:300px">
+        <input type="password" id="geminiApiKey" placeholder="Enter Gemini API Key (e.g. AIzaSy...)" style="flex:1;background:rgba(15,21,36,0.5);border:1px solid var(--border);color:white;padding:8px 12px;border-radius:var(--rsm);font-size:12px" />
+        <button class="btn btn-ghost btn-sm" onclick="saveApiKey()">Save</button>
+        <button class="btn btn-b btn-sm" id="testKeyBtn" onclick="testApiKey()">Test Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- YouTube Auto-Uploader Setup -->
+  <div class="card" style="margin-bottom:20px;background:rgba(0,255,136,0.02);border:1px dashed var(--border)">
+    <div style="padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🎥</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:white">YouTube Auto-Uploader Setup</div>
+          <div style="font-size:11px;color:var(--muted)">Link your YouTube channel to enable automatic uploads. Status: <strong id="ytStatus" style="color:#ff3333">OFFLINE</strong></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex:1;max-width:550px;min-width:300px">
+        <input type="text" id="ytClientId" placeholder="Client ID" style="flex:1;background:rgba(15,21,36,0.5);border:1px solid var(--border);color:white;padding:8px 12px;border-radius:var(--rsm);font-size:12px" />
+        <input type="password" id="ytClientSecret" placeholder="Client Secret" style="flex:1;background:rgba(15,21,36,0.5);border:1px solid var(--border);color:white;padding:8px 12px;border-radius:var(--rsm);font-size:12px" />
+        <button class="btn btn-ghost btn-sm" onclick="saveYoutubeSecrets()">Save</button>
+        <button class="btn btn-b btn-sm" id="ytLoginBtn" onclick="loginYoutube()">Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Output Folder Selector -->
+  <div class="card" style="margin-bottom:20px;background:rgba(255,255,255,0.03);border:1px dashed var(--border)">
+    <div style="padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">📁</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:white">Output Save Directory</div>
+          <div style="font-size:11px;color:var(--muted)">Choose the absolute path where your rendered shorts should be saved.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex:1;max-width:550px;min-width:300px">
+        <input type="text" id="outputFolder" placeholder="Default: output" style="flex:1;background:rgba(0,0,0,0.25);border:1px solid var(--border);color:white;padding:8px 12px;border-radius:var(--rsm);font-size:12px" onchange="saveOutputDir()" />
+        <button class="btn btn-ghost btn-sm" onclick="saveOutputDir()">Save Path</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+
+    <!-- ─── LEFT COLUMN ─── -->
+    <div class="col">
+
+      <!-- FloodBot Config Card -->
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">⚙️ FloodBot v2.0 Config</div>
+          <span id="fbStatus" class="badge badge-g"><span class="pulse"></span>Idle</span>
+        </div>
+
+        <!-- Global settings -->
+        <div class="slbl">Global Settings</div>
+
+        <div class="frow">
+          <div>
+            <label>Caption Language</label>
+            <select id="gLang" onchange="document.getElementById('sLang').textContent=this.value.toUpperCase()">
+              <option value="en">🇬🇧 English</option>
+              <option value="bn">🇧🇩 Bengali</option>
+              <option value="hi">🇮🇳 Hindi</option>
+              <option value="es">🇪🇸 Spanish</option>
+              <option value="fr">🇫🇷 French</option>
+              <option value="ar">🇸🇦 Arabic</option>
+              <option value="zh-CN">🇨🇳 Chinese</option>
+              <option value="ko">🇰🇷 Korean</option>
+              <option value="ja">🇯🇵 Japanese</option>
+              <option value="pt">🇧🇷 Portuguese</option>
+              <option value="de">🇩🇪 German</option>
+              <option value="ru">🇷🇺 Russian</option>
+            </select>
+          </div>
+          <div>
+            <label>Output Quality</label>
+            <select id="gQuality">
+              <option value="720p">📱 720p (Fast)</option>
+              <option value="1080p" selected>🎬 1080p (Best)</option>
+              <option value="4K">🔥 4K (Max)</option>
+              <option value="original">📦 Original</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="frow">
+          <div>
+            <label>Watermark Text</label>
+            <input type="text" id="gWatermark" placeholder="@YourChannel (or leave empty)"/>
+          </div>
+          <div>
+            <label>Hook Duration — <span id="hookDurLabel" style="color:var(--y);font-weight:700">30s</span></label>
+            <input type="range" id="gHookDur" value="30" min="30" max="480" step="5"
+              style="width:100%;accent-color:var(--r);cursor:pointer;"
+              oninput="const val=parseInt(this.value); document.getElementById('hookDurLabel').textContent = val >= 60 ? Math.floor(val/60)+'m '+(val%60)+'s' : val+'s'"/>
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px">
+              <span>30s</span><span>2m</span><span>4m</span><span>6m</span><span>8m</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="frow">
+          <div>
+            <label>Intro Clip (optional)</label>
+            <input type="text" id="gIntro" placeholder="intro.mp4"/>
+          </div>
+          <div>
+            <label>Outro Clip (optional)</label>
+            <input type="text" id="gOutro" placeholder="outro.mp4"/>
+          </div>
+        </div>
+        <!-- Audio Tuning (Bypass Copyright) -->
+        <div class="frow">
+          <div>
+            <label>Audio Speed — <span id="audioSpeedLabel" style="color:var(--y);font-weight:700">1.03x</span></label>
+            <input type="range" id="gAudioSpeed" value="1.03" min="0.8" max="1.5" step="0.01"
+              style="width:100%;accent-color:var(--b);cursor:pointer;"
+              oninput="document.getElementById('audioSpeedLabel').textContent=this.value+'x'"/>
+          </div>
+          <div>
+            <label>Audio Pitch — <span id="audioPitchLabel" style="color:var(--y);font-weight:700">1.10x</span></label>
+            <input type="range" id="gAudioPitch" value="1.10" min="0.8" max="1.5" step="0.01"
+              style="width:100%;accent-color:var(--b);cursor:pointer;"
+              oninput="document.getElementById('audioPitchLabel').textContent=this.value+'x'"/>
+          </div>
+        </div>
+
+        <!-- Caption style -->
+        <div class="slbl">Caption Style</div>
+        <label>Color</label>
+        <div class="swatches" id="colorSwatches">
+          <div class="swatch swatch-yellow active" data-color="yellow" onclick="pickColor(this)" title="Yellow"></div>
+          <div class="swatch swatch-white"  data-color="white"  onclick="pickColor(this)" title="White"></div>
+          <div class="swatch swatch-red"    data-color="red"    onclick="pickColor(this)" title="Red"></div>
+          <div class="swatch swatch-pink"   data-color="pink"   onclick="pickColor(this)" title="Pink"></div>
+          <div class="swatch swatch-blue"   data-color="blue"   onclick="pickColor(this)" title="Blue"></div>
+          <div class="swatch swatch-green"  data-color="green"  onclick="pickColor(this)" title="Green"></div>
+          <div class="swatch swatch-orange" data-color="orange" onclick="pickColor(this)" title="Orange"></div>
+        </div>
+        <div class="frow3" style="margin-top:10px">
+          <div>
+            <label>Size</label>
+            <select id="gCapSize">
+              <option value="18">Small</option>
+              <option value="24" selected>Medium</option>
+              <option value="30">Large</option>
+              <option value="38">XL</option>
+            </select>
+          </div>
+          <div>
+            <label>Position</label>
+            <select id="gCapPos">
+              <option value="bottom" selected>Bottom</option>
+              <option value="middle">Middle</option>
+              <option value="top">Top</option>
+            </select>
+          </div>
+          <div>
+            <label>Outline</label>
+            <select id="gCapOut">
+              <option value="black" selected>Black</option>
+              <option value="white">White</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 🎵 Background Music -->
+        <div class="slbl">🎵 Background Music</div>
+        <div class="trow">
+          <div><div class="tlbl">Add Background Music</div><div class="tsub">Mix subtle beat into the final video</div></div>
+          <label class="toggle"><input type="checkbox" id="gAddMusic" onchange="document.getElementById('musicOpts').style.display=this.checked?'block':'none'"/><span class="tslider"></span></label>
+        </div>
+        <div id="musicOpts" style="display:none;margin-bottom:14px">
+          <div class="f1">
+            <label>Music File Path (optional — leave blank for auto-beat)</label>
+            <input type="text" id="gMusicPath" placeholder="/path/to/music.mp3 or leave empty"/>
+          </div>
+          <div class="f1">
+            <label>Music Volume — <span id="musicVolLabel" style="color:var(--b);font-weight:700">12%</span></label>
+            <input type="range" id="gMusicVol" value="12" min="1" max="60" step="1"
+              style="width:100%;accent-color:var(--b);cursor:pointer;"
+              oninput="document.getElementById('musicVolLabel').textContent=this.value+'%'"/>
+          </div>
+        </div>
+
+        <!-- 🎯 Multi-Clip Mode -->
+        <div class="slbl">🎯 Multi-Clip Mode (Min 5 Clips Option)</div>
+        <div class="frow">
+          <div>
+            <label>Extract Top N Clips from each video</label>
+            <select id="gTopN">
+              <option value="1">1 clip (best moment)</option>
+              <option value="2">2 clips</option>
+              <option value="3">3 clips</option>
+              <option value="5" selected>5 clips (Recommended)</option>
+              <option value="7">7 clips</option>
+              <option value="10">10 clips (Max Batch)</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn btn-ghost btn-sm" style="width:100%" onclick="detectHooksPreview()" id="btnDetectHooks">
+              🔍 Preview Top Hook Moments
+            </button>
+          </div>
+        </div>
+
+        <!-- 🛡️ Copyright Bypass Options -->
+        <div class="slbl">🛡️ Anti-Copyright Protection</div>
+        <div class="trow">
+          <div>
+            <div class="tlbl">Bypass YouTube Copyright (Shorts)</div>
+            <div class="tsub">Flip, subtle zoom (2%), hue shift, audio EQ & complete metadata wipe</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="gCopyrightFree" checked/><span class="tslider"></span></label>
+        </div>
+
+        <!-- 💾 Branding Presets -->
+        <div class="slbl">💾 Branding Presets</div>
+        <div class="frow">
+          <div>
+            <label>Preset Name</label>
+            <input type="text" id="gPresetName" placeholder="My Channel Style"/>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:8px">
+            <button class="btn btn-ghost btn-sm" style="flex:1" onclick="savePreset()">💾 Save</button>
+            <button class="btn btn-ghost btn-sm" style="flex:1" onclick="loadPresets()">📂 Load</button>
+          </div>
+        </div>
+        <div id="presetList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+
+        <div class="slbl">Job List</div>
+        <div id="jobList"></div>
+        <div class="gap8 mt12">
+          <button class="btn btn-ghost btn-sm" onclick="addJob()">＋ Add Job</button>
+          <button class="btn btn-ghost btn-sm" onclick="addYTJob()">▶ Add YouTube URL</button>
+          <button class="btn btn-ghost btn-sm" onclick="openBulkModal()">📁 Bulk Add YT URLs</button>
+          <button class="btn btn-ghost btn-sm" onclick="openScanDirModal()">📂 Scan Local Folder</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearJobs()">🗑 Clear All</button>
+        </div>
+
+        <!-- Progress -->
+        <div class="prog-wrap" id="fbProg">
+          <div class="prog-lbl"><span>Processing...</span><span id="fbPct">0%</span></div>
+          <div class="prog-bar"><div class="prog-fill" id="fbFill"></div></div>
+        </div>
+
+        <div class="gap8 mt16">
+          <button class="btn btn-r" id="runFbBtn" onclick="runFloodBot()">🚀 Run FloodBot</button>
+        </div>
+      </div>
+
+      <!-- ManifestBot -->
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">📋 ManifestBot</div>
+          <span id="mbStatus" class="badge badge-g"><span class="pulse"></span>Idle</span>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+          Generates <code style="color:var(--p)">manifest.json</code>, <code style="color:var(--p)">manifest.csv</code>
+          and per-video upload cards with viral titles &amp; hashtags.
+        </p>
+        <div class="f1">
+          <label>Niche / Topic</label>
+          <input type="text" id="mbTopic" value="Amazing" placeholder="Finance, Fitness, Tech…"/>
+        </div>
+        <button class="btn btn-p btn-full" id="runMbBtn" onclick="runManifestBot()">📋 Generate Metadata</button>
+      </div>
+
+      <!-- 🛡️ Long Video Copyright Cleaner -->
+      <div class="card" style="border:1px solid rgba(0,255,136,0.3);background:rgba(0,255,136,0.02)">
+        <div class="card-hdr">
+          <div class="card-title">🛡️ Long Video Copyright Cleaner</div>
+          <span class="badge badge-g">Bypass Engine</span>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+          Convert an entire full-length video into a <strong>100% YouTube Copyright-Free</strong> version with mirror flip, hue shift, 2% zoom crop, frequency EQ and metadata strip.
+        </p>
+        <div class="f1">
+          <label>Video File or YouTube URL</label>
+          <input type="text" id="longVidInput" placeholder="/path/to/long_video.mp4 or https://youtube.com/watch?v=..."/>
+        </div>
+        <div class="frow">
+          <div>
+            <label>Output Quality</label>
+            <select id="longVidQuality">
+              <option value="1080p" selected>1080p (Full HD)</option>
+              <option value="720p">720p (Fast)</option>
+              <option value="4K">4K (Ultra HD)</option>
+            </select>
+          </div>
+          <div>
+            <label>Audio Speed / Pitch</label>
+            <select id="longVidAudio">
+              <option value="1.02,1.05" selected>1.02x Speed + 1.05x Pitch</option>
+              <option value="1.03,1.10">1.03x Speed + 1.10x Pitch</option>
+              <option value="1.00,1.00">Original Pitch/Speed</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-r btn-full" id="btnLongVid" onclick="processLongVideo()">🛡️ Convert Long Video to Copyright-Free</button>
+      </div>
+
+    </div>
+
+    <!-- ─── RIGHT COLUMN ─── -->
+    <div class="col">
+
+      <!-- Live Console -->
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">🖥️ Live Console</div>
+          <button class="btn btn-ghost btn-sm" onclick="clearConsole()">Clear</button>
+        </div>
+        <div class="console" id="console">
+          <span class="log-info"><span class="log-ts">--:--:--</span>Waiting for commands…</span>
+        </div>
+      </div>
+
+      <!-- Find Viral Videos -->
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">🔥 Find Viral Videos</div>
+        </div>
+        <div style="padding:14px">
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input type="text" id="viralKeyword" placeholder="Niche/Keyword (e.g. motivation)" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:white;padding:6px 10px;border-radius:var(--rsm);font-size:12px" />
+            <select id="viralTimeframe" style="width:100px;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:white;padding:6px 10px;border-radius:var(--rsm);font-size:12px">
+              <option value="24h">Last 24h</option>
+              <option value="7d">Last 7d</option>
+              <option value="all">All Time</option>
+            </select>
+            <button class="btn btn-b btn-sm" id="viralSearchBtn" onclick="findViral()">Search</button>
+          </div>
+          <div id="viralList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding-right:4px">
+            <p style="color:var(--muted);font-size:12px;text-align:center;padding:10px">Enter keyword and search for viral trends!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Output Files -->
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">🎬 Output Files</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="openOutputFolder()">📂 Open Folder</button>
+            <button class="btn btn-ghost btn-sm" onclick="refreshFiles()">↻ Refresh</button>
+            <button class="btn btn-danger btn-sm" onclick="clearHistory()">🗑 Clear History</button>
+          </div>
+        </div>
+        <div id="fileList">
+          <p style="color:var(--muted);font-size:13px;text-align:center;padding:20px">
+            No files yet — run FloodBot first!
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Cyber Diagnostics Manual, How to Use, Why We Are Best ── -->
+  <div class="card" style="margin-top:20px;border:1px solid var(--border)">
+    <div style="font-size:15px;font-weight:800;color:var(--r);border-bottom:1px solid rgba(0,255,136,0.15);padding-bottom:10px;margin-bottom:15px;display:flex;align-items:center;gap:8px">
+      📖 CYBER_DIAGNOSTICS_MANUAL.LOG
+    </div>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <!-- Left Column: How to Use & Why We Are Best -->
+      <div style="display:flex;flex-direction:column;gap:15px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-bottom:8px">🕹️ HOW TO RUN AUTOMATION</div>
+          <ol style="padding-left:16px;line-height:1.7;font-size:12px;color:rgba(226,240,237,0.85)">
+            <li>Choose **"＋ Add Job"** to load a local video, or **"▶ Add YouTube URL"** for download automation.</li>
+            <li>If local, drop your video file or click Browse to analyze with the **Local FFprobe card**.</li>
+            <li>Configure aspect ratio, subtitles styling, and select custom royalty-free background music.</li>
+            <li>Enable the **"🎣 AI Hook Detection"** switch to auto-locate the most viral moments.</li>
+            <li>Toggle **"Auto-Bleep Swears"**, **"Mouth Sensor Blur"**, or **"Beat-Sync Captions"** to apply advanced cyber filters.</li>
+            <li>Click **"🚀 Run FloodBot"** to export. Finished videos appear in the **Output Files list** instantly.</li>
+          </ol>
+        </div>
+        
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-bottom:8px">💎 WHY +FLOODBOT BY CYBER2 IS ELITE</div>
+          <ul style="list-style-type:none;padding-left:0;line-height:1.7;font-size:12px;color:rgba(226,240,237,0.85)">
+            <li>✅ **100% Free & Private**: No monthly premium server costs. Every rendering, voice translation, and analysis is processed securely on your local CPU/GPU.</li>
+            <li>✅ **Pure FFmpeg Pipeline**: 3-5x faster than basic video editing suites. We manipulate video binaries directly rather than frame-by-frame.</li>
+            <li>✅ **Kinetic Word-Highlights**: Generates captions matching top viral shorts styles with customizable positions.</li>
+            <li>✅ **True Bypass Scrambling**: Automatic metadata clearing, pitch-shifting, and visual adjustments built-in.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Right Column: FAQs -->
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--r);margin-bottom:8px">❓ FREQUENTLY ASKED QUESTIONS</div>
+        <div style="display:flex;flex-direction:column;gap:12px;max-height:350px;overflow-y:auto;padding-right:4px;font-size:11px;line-height:1.6;color:rgba(226,240,237,0.75)">
+          <div>
+            <strong style="color:var(--r)">Q: How does the Auto-Bleep & Censor bar work?</strong>
+            <p>A: The system scans the audio stream with Whisper for profanity, then mixes a silent filter during those intervals and overlays a black censor bar on the center-lower portion of the video.</p>
+          </div>
+          <div>
+            <strong style="color:var(--r)">Q: What is Beat-Sync and how do I use it?</strong>
+            <p>A: Beat-Sync analyzes the transient rhythm peaks in the music file. It then snaps the start times of the caption words to the closest beat drop, making the captions feel alive and synced to the music.</p>
+          </div>
+          <div>
+            <strong style="color:var(--r)">Q: Does voice translation dubbing support multiple languages?</strong>
+            <p>A: Yes! It translates the text transcript to your target language, generates the voiceover audio, speeds it up or down to align with the video time, and swaps the original track with the translated voice.</p>
+          </div>
+          <div>
+            <strong style="color:var(--r)">Q: How is the Virality Score calculated?</strong>
+            <p>A: We parse the text transcript and metadata to Gemini. It evaluates the hook efficiency, retention quality, and supplies actionable suggestions.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:40px"></div>
+</div>
+
+<!-- Upload Card Modal -->
+<div class="modal-ov" id="cardModal" onclick="if(event.target===this)closeCard()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong>📄 Upload Card</strong>
+      <button class="btn btn-ghost btn-sm" onclick="closeCard()">✕</button>
+    </div>
+    <pre id="cardTxt"></pre>
+    <button class="btn btn-b btn-sm mt12" onclick="copyCard()">📋 Copy</button>
+  </div>
+</div>
+
+<!-- Bulk Add Modal -->
+<div class="modal-ov" id="bulkModal" onclick="if(event.target===this)closeBulkModal()">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong>📁 Bulk Add YouTube URLs</strong>
+      <button class="btn btn-ghost btn-sm" onclick="closeBulkModal()">✕</button>
+    </div>
+    <div class="f1">
+      <label>Paste YouTube URLs (one per line)</label>
+      <textarea id="bulkUrls" rows="8" placeholder="https://youtube.com/watch?v=1&#10;https://youtube.com/watch?v=2" style="font-family:monospace; font-size:12px; resize:vertical; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:white; width:100%; border-radius:var(--rsm); padding:10px;"></textarea>
+    </div>
+    <button class="btn btn-r btn-sm mt12" onclick="submitBulkUrls()">Add to Job List</button>
+  </div>
+</div>
+
+<!-- Direct Auto-Uploader Modal -->
+<div class="modal-ov" id="uploadModal" onclick="if(event.target===this)closeUploadModal()">
+  <div class="modal" style="max-width:550px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong>📤 Direct Social Auto-Uploader</strong>
+      <button class="btn btn-ghost btn-sm" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div class="f1" style="margin-bottom:12px">
+      <label>Target Video File</label>
+      <input type="text" id="uploadFileName" readonly style="background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--muted); width:100%; padding:8px; border-radius:var(--rsm); font-size:12px" />
+    </div>
+    
+    <div class="f1" style="margin-bottom:12px">
+      <label>Select Target Platforms</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:rgba(255,255,255,0.02);padding:10px;border-radius:var(--rsm);border:1px solid var(--border)">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px">
+          <input type="checkbox" id="upYt" checked /> 🎥 YouTube Shorts
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px">
+          <input type="checkbox" id="upFb" checked /> 📘 Facebook Reels
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px">
+          <input type="checkbox" id="upIg" checked /> 📷 Instagram Reels
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px">
+          <input type="checkbox" id="upTk" /> 🎵 TikTok Drafts
+        </label>
+      </div>
+    </div>
+
+    <div class="f1" style="margin-bottom:12px">
+      <label>Reels Caption & Hashtags</label>
+      <textarea id="uploadCaption" rows="6" style="background:rgba(0,0,0,0.25); border:1px solid var(--border); color:white; width:100%; border-radius:var(--rsm); padding:10px; font-size:12px; resize:vertical" placeholder="Enter caption, description, and tags..."></textarea>
+    </div>
+
+    <div class="f1" style="margin-bottom:16px">
+      <label>Meta Page Access Token / Session Cookies (Optional)</label>
+      <input type="password" id="uploadToken" placeholder="Leave empty to use automatic browser session login..." style="background:rgba(0,0,0,0.25); border:1px solid var(--border); color:white; width:100%; padding:8px; border-radius:var(--rsm); font-size:12px" />
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="closeUploadModal()">Cancel</button>
+      <button class="btn btn-r btn-sm" onclick="startAutomatedUpload()">🚀 Start Automated Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- YouTube Auto-Upload Modal -->
+<div class="modal-ov" id="ytUploadModal" onclick="if(event.target===this)closeYtUploadModal()">
+  <div class="modal" style="max-width:550px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong>🎥 YouTube Auto-Uploader</strong>
+      <button class="btn btn-ghost btn-sm" onclick="closeYtUploadModal()">✕</button>
+    </div>
+    
+    <div class="f1" style="margin-bottom:12px">
+      <label>Video File to Upload</label>
+      <input type="text" id="ytUploadFileName" readonly style="background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--muted); width:100%; padding:8px; border-radius:var(--rsm); font-size:12px" />
+    </div>
+    
+    <div class="f1" style="margin-bottom:12px">
+      <label>Video Title (Max 100 chars)</label>
+      <input type="text" id="ytUploadTitle" placeholder="Enter video title..." style="background:rgba(0,0,0,0.25); border:1px solid var(--border); color:white; width:100%; padding:8px; border-radius:var(--rsm); font-size:12px" />
+    </div>
+
+    <div class="f1" style="margin-bottom:12px">
+      <label>Video Description</label>
+      <textarea id="ytUploadDesc" rows="4" style="background:rgba(0,0,0,0.25); border:1px solid var(--border); color:white; width:100%; border-radius:var(--rsm); padding:10px; font-size:12px; resize:vertical" placeholder="Enter video description..."></textarea>
+    </div>
+
+    <div class="f1" style="margin-bottom:12px">
+      <label>Hashtags / Tags (Comma separated)</label>
+      <input type="text" id="ytUploadTags" placeholder="shorts, viral, trending" style="background:rgba(0,0,0,0.25); border:1px solid var(--border); color:white; width:100%; padding:8px; border-radius:var(--rsm); font-size:12px" />
+    </div>
+
+    <div class="f1" style="margin-bottom:16px">
+      <label>Privacy Status</label>
+      <select id="ytUploadPrivacy" style="background:rgba(0,0,0,0.25); border:1px solid var(--border); color:white; width:100%; padding:8px; border-radius:var(--rsm); font-size:12px">
+        <option value="public" selected>Public</option>
+        <option value="private">Private</option>
+        <option value="unlisted">Unlisted</option>
+      </select>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="closeYtUploadModal()">Cancel</button>
+      <button class="btn btn-r btn-sm" onclick="submitYtUpload()">🚀 Upload to YouTube</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let jobs = [
+  { type:"file", input:"input.mp4", start:15, end:45, output:"short_01.mp4",
+    useHook:false, aspectRatio:"9:16", burnCaptions:true, expanded:true },
+];
+let selectedColor = "yellow";
+let logCount = 0;
+
+// ── Init ───────────────────────────────────────────────────────
+window.onload = () => {
+  document.getElementById('geminiApiKey').value = localStorage.getItem('gemini_api_key') || '';
+  document.getElementById('outputFolder').value = localStorage.getItem('output_folder') || '';
+  
+  // Load cyber2 license key
+  const lic = localStorage.getItem('cyber2_license') || '';
+  document.getElementById('licenseKey').value = lic;
+  if (lic && lic.startsWith('CYBER2-')) {
+    document.getElementById('licStatus').textContent = "VIP_ACTIVATED (CYBER2-VIP)";
+    document.getElementById('licStatus').style.color = "#00ff00";
+  } else {
+    document.getElementById('licStatus').textContent = "FREE_DEMO";
+    document.getElementById('licStatus').style.color = "#ff3333";
+  }
+
+  renderJobs();
+  refreshFiles();
+  fetchStatus();
+  connectLogs();
+  checkYoutubeStatus();
+  setInterval(fetchStatus, 4000);
+  setInterval(checkYoutubeStatus, 5000);
+};
+
+function activateLicense() {
+  const key = document.getElementById('licenseKey').value.trim();
+  if (key.startsWith('CYBER2-')) {
+    localStorage.setItem('cyber2_license', key);
+    document.getElementById('licStatus').textContent = "VIP_ACTIVATED (CYBER2-VIP)";
+    document.getElementById('licStatus').style.color = "#00ff00";
+    showToast("✅ CYBER2 PRO LICENSE ACTIVATED!");
+  } else {
+    alert("Invalid license key format! Key must start with 'CYBER2-'");
+  }
+}
+
+function saveApiKey() {
+  const key = document.getElementById('geminiApiKey').value.trim();
+  localStorage.setItem('gemini_api_key', key);
+  alert("Gemini API Key saved successfully!");
+}
+
+async function testApiKey() {
+  const btn = document.getElementById('testKeyBtn');
+  const key = document.getElementById('geminiApiKey').value.trim();
+  if(!key) {
+    alert("Please enter a key first!");
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Testing...';
+  try {
+    const res = await fetch('/api/test-gemini-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gemini_api_key: key })
+    });
+    const d = await res.json();
+    if(d.ok) {
+      alert("✅ Success: Gemini API Key is valid and working!");
+    } else {
+      alert("❌ Error: " + d.error);
+    }
+  } catch(e) {
+    alert("❌ Connection error: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Test Key';
+  }
+}
+
+function saveOutputDir() {
+  const path = document.getElementById('outputFolder').value.trim();
+  localStorage.setItem('output_folder', path);
+  alert("Output Save Directory path updated!");
+  refreshFiles();
+  fetchStatus();
+}
+
+// ── Color picker ───────────────────────────────────────────────
+function pickColor(el) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  selectedColor = el.dataset.color;
+}
+
+// ── 🔍 Hook Preview (Multi-clip) ───────────────────────────────
+async function detectHooksPreview() {
+  const btn = document.getElementById('btnDetectHooks');
+  const ytUrl = document.querySelector('.job-card .yt-url-input')?.value?.trim() || '';
+  const videoPath = document.querySelector('.job-card .file-input')?.value?.trim() || '';
+  const dur = +(document.getElementById('gHookDur').value) || 30;
+  const topN = +(document.getElementById('gTopN').value) || 3;
+
+  if (!ytUrl && !videoPath) {
+    alert('Please add a job first (YouTube URL or local file).');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Scanning hooks...';
+  try {
+    const res = await fetch('/api/detect-hooks', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ youtube_url: ytUrl, video_path: videoPath,
+                             clip_duration: dur, top_n: topN,
+                             gemini_api_key: document.getElementById('geminiKey')?.value?.trim()||'' })
+    });
+    const d = await res.json();
+    if (!d.ok) throw new Error(d.error || 'Hook detection failed');
+  } catch(e) {
+    alert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Preview Hook Moments';
+  }
+}
+
+// ── 💾 Branding Presets ─────────────────────────────────────────
+async function savePreset() {
+  const name = document.getElementById('gPresetName').value.trim();
+  if (!name) { alert('Enter a preset name first'); return; }
+  const preset = {
+    name,
+    caption_color:    selectedColor || 'yellow',
+    caption_size:     document.getElementById('gCapSize').value,
+    caption_position: document.getElementById('gCapPos').value,
+    caption_outline:  document.getElementById('gCapOut').value,
+    watermark:        document.getElementById('gWatermark').value,
+    hook_duration:    document.getElementById('gHookDur').value,
+    quality:          document.getElementById('gQuality')?.value || '1080p',
+    aspect_ratio:     document.getElementById('gAspect')?.value || '9:16',
+  };
+  await fetch('/api/save-preset', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(preset) });
+  loadPresets();
+}
+
+async function loadPresets() {
+  const res = await fetch('/api/load-presets');
+  const d = await res.json();
+  const el = document.getElementById('presetList');
+  el.innerHTML = '';
+  Object.entries(d.presets||{}).forEach(([name, vals]) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;align-items:center;gap:4px;';
+    wrap.innerHTML = `
+      <button onclick="applyPreset(${JSON.stringify(JSON.stringify(vals))})"
+        style="padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+               color:var(--text);font-size:12px;cursor:pointer;font-weight:600;">${name}</button>
+      <button onclick="deletePreset('${name}')"
+        style="padding:4px 8px;border-radius:6px;background:rgba(255,45,85,.15);border:1px solid rgba(255,45,85,.3);
+               color:var(--r);font-size:11px;cursor:pointer;">✕</button>`;
+    el.appendChild(wrap);
+  });
+}
+
+function applyPreset(jsonStr) {
+  const v = JSON.parse(jsonStr);
+  if (v.caption_color) {
+    selectedColor = v.caption_color;
+    document.querySelectorAll('.swatch').forEach(s => {
+      s.classList.toggle('active', s.dataset.color === v.caption_color);
+    });
+  }
+  if (v.caption_size)     document.getElementById('gCapSize').value = v.caption_size;
+  if (v.caption_position) document.getElementById('gCapPos').value  = v.caption_position;
+  if (v.caption_outline)  document.getElementById('gCapOut').value  = v.caption_outline;
+  if (v.watermark)        document.getElementById('gWatermark').value= v.watermark;
+  if (v.hook_duration) {
+    document.getElementById('gHookDur').value = v.hook_duration;
+    document.getElementById('hookDurLabel').textContent = v.hook_duration + 's';
+  }
+  if (v.quality && document.getElementById('gQuality'))    document.getElementById('gQuality').value   = v.quality;
+  if (v.aspect_ratio && document.getElementById('gAspect')) document.getElementById('gAspect').value = v.aspect_ratio;
+  showToast('✅ Preset applied!');
+}
+
+async function deletePreset(name) {
+  await fetch('/api/delete-preset', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+  loadPresets();
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:rgba(48,209,88,.2);border:1px solid rgba(48,209,88,.4);' +
+    'color:#30d158;padding:10px 20px;border-radius:12px;font-weight:600;font-size:13px;z-index:9999;animation:fadeIn .3s ease';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// Load presets on page load
+window.addEventListener('DOMContentLoaded', () => { loadPresets(); });
+
+// ── Jobs ───────────────────────────────────────────────────────
+function addJob() {
+  const n = jobs.length + 1;
+  jobs.push({ type:"file", input:"input.mp4", start:0, end:30, aspectRatio:"9:16", burnCaptions:true,
+              output:`short_${String(n).padStart(2,'0')}.mp4`, useHook:false, expanded:true,
+              autoBleep:false, sensorBlur:false, beatSync:false, dubLang:"" });
+  renderJobs();
+}
+function addYTJob() {
+  const n = jobs.length + 1;
+  jobs.push({ type:"yt", ytUrl:"", start:0, end:30, useHook:true, aspectRatio:"9:16", burnCaptions:true,
+              output:`yt_short_${String(n).padStart(2,'0')}.mp4`, expanded:true,
+              autoBleep:false, sensorBlur:false, beatSync:false, dubLang:"" });
+  renderJobs();
+}
+function removeJob(i) { jobs.splice(i,1); renderJobs(); }
+function clearJobs()  { jobs = []; renderJobs(); }
+function toggleJob(i) { jobs[i].expanded = !jobs[i].expanded; renderJobs(); }
+
+async function fetchYTMetadata(idx, url) {
+  if (!url || !url.trim()) return;
+  jobs[idx].metadataLoading = true;
+  jobs[idx].metadataError = null;
+  jobs[idx].metadata = null;
+  renderJobs();
+  try {
+    const res = await fetch('/api/youtube-metadata', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    if (data.error) {
+      jobs[idx].metadataError = data.error;
+    } else {
+      jobs[idx].metadata = data;
+      if (!jobs[idx].end || jobs[idx].end === 30) {
+        jobs[idx].end = data.duration;
+      }
+      const safeTitle = data.title.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+      jobs[idx].output = `${safeTitle}.mp4`;
+    }
+  } catch (e) {
+    jobs[idx].metadataError = e.message;
+  } finally {
+    jobs[idx].metadataLoading = false;
+    renderJobs();
+  }
+}
+
+function renderJobs() {
+  const el = document.getElementById('jobList');
+  el.innerHTML = '';
+  jobs.forEach((j,i) => {
+    const isYT = j.type === 'yt';
+    const lbl  = isYT
+      ? (j.ytUrl ? j.ytUrl.slice(0,40)+'…' : 'YouTube URL Job')
+      : (j.input || 'Job ' + (i+1));
+    el.innerHTML += `
+    <div class="job-card">
+      <div class="job-head" onclick="toggleJob(${i})">
+        <span class="job-num">${i+1}</span>
+        <span class="job-name">${isYT?'▶ ':'📄 '}${esc(lbl)}</span>
+        ${j.useHook ? '<span style="font-size:11px;color:var(--o);margin-right:8px">🎣 Hook</span>':
+                      '<span style="font-size:11px;color:var(--muted);margin-right:8px">✂️ Manual</span>'}
+        <button class="btn btn-danger" onclick="event.stopPropagation();removeJob(${i})">✕</button>
+      </div>
+      <div class="job-body ${j.expanded?'open':''}">
+        ${isYT ? `
+        <div class="f1">
+          <label>YouTube URL</label>
+          <input type="text" value="${esc(j.ytUrl||'')}" placeholder="https://youtube.com/watch?v=..."
+            onchange="jobs[${i}].ytUrl=this.value;fetchYTMetadata(${i},this.value)"/>
+        </div>` : `
+        <div class="f1">
+          <label>Input Video</label>
+          <div class="drop-zone" id="dz-${i}"
+            ondragover="event.preventDefault();this.classList.add('dragover')"
+            ondragleave="this.classList.remove('dragover')"
+            ondrop="handleFileDrop(event,${i})"
+            onclick="openFileBrowser(${i})">
+            <div class="drop-zone-icon">🎬</div>
+            <div class="drop-zone-text"><strong>Click to Browse</strong> or drag & drop a video file</div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:-4px;margin-bottom:10px">
+            <input type="text" class="file-input" value="${esc(j.input||'')}" placeholder="/path/to/video.mp4 or filename.mp4"
+              style="flex:1" onchange="jobs[${i}].input=this.value;loadVideoInfo(${i},this.value)"/>
+            <button class="btn btn-ghost btn-sm" onclick="openFileBrowser(${i})" title="Browse files">📂</button>
+            <button class="btn btn-ghost btn-sm" onclick="previewVideo(jobs[${i}].input)" title="Preview">▶</button>
+          </div>
+          ${j.videoInfo ? `
+          <div class="vinfo">
+            <img class="vinfo-thumb" src="/api/generate-thumbnail?path=${encodeURIComponent(j.videoInfo.path)}&ts=2" onerror="this.style.display='none'"/>
+            <div style="flex:1;min-width:0">
+              <div class="vinfo-name">${esc(j.videoInfo.name)}</div>
+              <div class="vinfo-details">
+                ⏱ ${Math.floor(j.videoInfo.duration/60)}m ${Math.round(j.videoInfo.duration%60)}s
+                &nbsp;·&nbsp; ${j.videoInfo.width||'?'}×${j.videoInfo.height||'?'}
+                &nbsp;·&nbsp; ${j.videoInfo.fps||'?'}fps
+                &nbsp;·&nbsp; ${j.videoInfo.size_mb}MB
+              </div>
+            </div>
+          </div>` : ''}
+        </div>`}
+
+        <!-- Metadata Card -->
+        ${j.metadataLoading ? `
+          <div style="font-size:12px;color:var(--o);margin-bottom:12px;animation:pulse 1s infinite;display:flex;align-items:center;gap:6px">
+            <span class="pulse"></span> Fetching video details from YouTube...
+          </div>
+        ` : ''}
+        ${j.metadataError ? `
+          <div style="font-size:12px;color:#ff453a;margin-bottom:12px;background:rgba(255,69,58,0.08);border:1px solid rgba(255,69,58,0.2);padding:8px 12px;border-radius:var(--rsm)">
+            ❌ ${esc(j.metadataError)}
+          </div>
+        ` : ''}
+        ${j.metadata ? `
+          <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--rsm);padding:10px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-start">
+            <img src="${j.metadata.thumbnail}" style="width:120px;border-radius:6px;aspect-ratio:16/9;object-fit:cover;border:1px solid var(--border);flex-shrink:0"/>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:13px;color:white;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(j.metadata.title)}">${esc(j.metadata.title)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:3px">🕒 Duration: ${Math.floor(j.metadata.duration / 60)}m ${j.metadata.duration % 60}s</div>
+              <div style="font-size:11px;color:#a0a0ab;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(j.metadata.description)}</div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Hook toggle per job -->
+        <div class="trow">
+          <div><div class="tlbl">🎣 AI Hook Detection</div>
+            <div class="tsub">AI finds the best viral moment automatically</div></div>
+          <label class="toggle">
+            <input type="checkbox" ${j.useHook?'checked':''} onchange="jobs[${i}].useHook=this.checked;renderJobs()"/>
+            <span class="tslider"></span>
+          </label>
+        </div>
+
+        ${!j.useHook ? `
+        <div class="frow">
+          <div><label>Start (sec)</label>
+            <input type="number" value="${j.start||0}" min="0" onchange="jobs[${i}].start=+this.value"/></div>
+          <div><label>End (sec)</label>
+            <input type="number" value="${j.end||30}" min="1" onchange="jobs[${i}].end=+this.value"/></div>
+        </div>` : `
+        <div class="hook-active show">
+          🎣 Hook mode ON — AI will scan the video and extract the most viral ${document.getElementById('gHookDur')?.value||30}s moment automatically.
+        </div>`}
+
+        <!-- Aspect Ratio & Captions Toggle -->
+        <div class="frow" style="margin-top:10px">
+          <div>
+            <label>Aspect Ratio</label>
+            <select onchange="jobs[${i}].aspectRatio=this.value;renderJobs()">
+              <option value="9:16" ${j.aspectRatio!=='1:1'&&j.aspectRatio!=='16:9'&&j.aspectRatio!=='original'&&j.aspectRatio!=='podcast_split'?'selected':''}>📱 9:16 (Shorts)</option>
+              <option value="1:1" ${j.aspectRatio==='1:1'?'selected':''}>🔳 1:1 (Square)</option>
+              <option value="16:9" ${j.aspectRatio==='16:9'?'selected':''}>🖥️ 16:9 (Landscape)</option>
+              <option value="podcast_split" ${j.aspectRatio==='podcast_split'?'selected':''}>🎙️ Podcast Split (9:16)</option>
+              <option value="original" ${j.aspectRatio==='original'?'selected':''}>📦 Original</option>
+            </select>
+          </div>
+          <div>
+            <div class="tlbl" style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-bottom:5px">Burn Captions</div>
+            <label class="toggle">
+              <input type="checkbox" ${j.burnCaptions!==false?'checked':''} onchange="jobs[${i}].burnCaptions=this.checked;renderJobs()"/>
+              <span class="tslider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- ── Advanced AI Video Controls ── -->
+        <div style="background:rgba(0,255,0,0.02);border:1px solid rgba(0,255,0,0.15);padding:12px;margin:12px 0;border-radius:2px">
+          <div style="font-size:11px;font-weight:700;color:var(--r);text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px">⚡ Advanced Cyber-Filters</div>
+          
+          <div class="trow" style="margin-bottom:8px;padding:6px 0;border-bottom:1px dashed rgba(0,255,0,0.1)">
+            <div><div class="tlbl" style="font-size:12px">Auto-Bleep Swears</div><div class="tsub">Mute/Bleep profanities</div></div>
+            <label class="toggle">
+              <input type="checkbox" ${j.autoBleep?'checked':''} onchange="jobs[${i}].autoBleep=this.checked;renderJobs()"/>
+              <span class="tslider"></span>
+            </label>
+          </div>
+
+          <div class="trow" style="margin-bottom:8px;padding:6px 0;border-bottom:1px dashed rgba(0,255,0,0.1)">
+            <div><div class="tlbl" style="font-size:12px">Mouth Sensor Blur</div><div class="tsub">Add censor bar on mouth</div></div>
+            <label class="toggle">
+              <input type="checkbox" ${j.sensorBlur?'checked':''} onchange="jobs[${i}].sensorBlur=this.checked;renderJobs()"/>
+              <span class="tslider"></span>
+            </label>
+          </div>
+
+          <div class="trow" style="margin-bottom:8px;padding:6px 0;border-bottom:1px dashed rgba(0,255,0,0.1)">
+            <div><div class="tlbl" style="font-size:12px">Beat-Sync Captions</div><div class="tsub">Align highlights to music drop</div></div>
+            <label class="toggle">
+              <input type="checkbox" ${j.beatSync?'checked':''} onchange="jobs[${i}].beatSync=this.checked;renderJobs()"/>
+              <span class="tslider"></span>
+            </label>
+          </div>
+
+          <div class="f1" style="margin-top:10px">
+            <label style="font-size:10px">Global Dubbing (AI Voiceover Translation)</label>
+            <select onchange="jobs[${i}].dubLang=this.value;renderJobs()" style="background:#050c05;border:1px solid rgba(0,255,0,0.3)">
+              <option value="" ${!j.dubLang?'selected':''}>Disabled (Use Original Audio)</option>
+              <option value="en" ${j.dubLang==='en'?'selected':''}>English (US)</option>
+              <option value="es" ${j.dubLang==='es'?'selected':''}>Spanish (Español)</option>
+              <option value="hi" ${j.dubLang==='hi'?'selected':''}>Hindi (हिन्दी)</option>
+              <option value="bn" ${j.dubLang==='bn'?'selected':''}>Bengali (বাংলা)</option>
+              <option value="ar" ${j.dubLang==='ar'?'selected':''}>Arabic (العربية)</option>
+              <option value="fr" ${j.dubLang==='fr'?'selected':''}>French (Français)</option>
+              <option value="de" ${j.dubLang==='de'?'selected':''}>German (Deutsch)</option>
+              <option value="ja" ${j.dubLang==='ja'?'selected':''}>Japanese (日本語)</option>
+              <option value="pt" ${j.dubLang==='pt'?'selected':''}>Portuguese (Português)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px">
+          <button class="btn btn-b btn-sm btn-full" onclick="predictVirality(${i})">
+            📈 Predict Virality Score & Tips
+          </button>
+        </div>
+
+        <div class="frow">
+          <div style="grid-column: span 2">
+            <label>Output Filename</label>
+            <input type="text" value="${esc(j.output||'short_'+String(i+1).padStart(2,'0')+'.mp4')}"
+              onchange="jobs[${i}].output=this.value"/>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('sJobs').textContent = jobs.length;
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Run FloodBot ───────────────────────────────────────────────
+async function runFloodBot() {
+  const btn = document.getElementById('runFbBtn');
+  btn.disabled = true; btn.innerHTML = '⏳ Running…';
+  document.getElementById('fbProg').classList.add('vis');
+  animateProg();
+
+  const payload = jobs.map(j => ({
+    type           : j.type,
+    video_path     : j.type==='file' ? (j.input||'input.mp4') : 'input.mp4',
+    youtube_url    : j.type==='yt'   ? j.ytUrl : '',
+    use_hook       : j.useHook || false,
+    hook_duration  : +(document.getElementById('gHookDur').value)||30,
+    top_n          : +(document.getElementById('gTopN').value)||1,
+    start          : j.start  || 0,
+    end            : j.end    || 30,
+    output         : j.output || `short_${jobs.indexOf(j)+1}.mp4`,
+    caption_lang   : document.getElementById('gLang').value,
+    quality        : document.getElementById('gQuality').value,
+    watermark      : document.getElementById('gWatermark').value.trim(),
+    intro_path     : document.getElementById('gIntro').value.trim(),
+    outro_path     : document.getElementById('gOutro').value.trim(),
+    caption_color  : selectedColor,
+    caption_size   : document.getElementById('gCapSize').value,
+    caption_position: document.getElementById('gCapPos').value,
+    caption_outline : document.getElementById('gCapOut').value,
+    aspect_ratio   : j.aspectRatio || "9:16",
+    burn_captions  : j.burnCaptions !== false,
+    add_music      : document.getElementById('gAddMusic').checked,
+    music_volume   : +(document.getElementById('gMusicVol').value)/100 || 0.12,
+    music_path     : document.getElementById('gMusicPath').value.trim(),
+    auto_bleep     : j.autoBleep || false,
+    sensor_blur    : j.sensorBlur || false,
+    beat_sync      : j.beatSync || false,
+    dub_lang       : j.dubLang || "",
+    audio_speed    : +(document.getElementById('gAudioSpeed').value)||1.03,
+    audio_pitch    : +(document.getElementById('gAudioPitch').value)||1.1,
+    copyright_free : document.getElementById('gCopyrightFree') ? document.getElementById('gCopyrightFree').checked : true,
+  }));
+
+  const res = await fetch('/api/run-floodbot',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      jobs: payload,
+      gemini_api_key: localStorage.getItem('gemini_api_key') || '',
+      output_folder: localStorage.getItem('output_folder') || ''
+    })
+  });
+  const d = await res.json();
+  if(d.error){ addLog('⚠️ '+d.error,'warn'); btn.disabled=false; btn.innerHTML='🚀 Run FloodBot'; }
+}
+
+// ── Process Long Video (Copyright-Free) ────────────────────────
+async function processLongVideo() {
+  const inputVal = (document.getElementById('longVidInput').value || '').trim();
+  if(!inputVal) {
+    alert('Please enter a video file path or YouTube URL first!');
+    return;
+  }
+  const btn = document.getElementById('btnLongVid');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Processing Long Video…';
+
+  const audioParts = (document.getElementById('longVidAudio').value || '1.02,1.05').split(',');
+  const spd = parseFloat(audioParts[0]) || 1.02;
+  const ptc = parseFloat(audioParts[1]) || 1.05;
+
+  const isYt = inputVal.startsWith('http://') || inputVal.startsWith('https://');
+
+  try {
+    const res = await fetch('/api/process-long-video', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        video_path   : isYt ? '' : inputVal,
+        youtube_url  : isYt ? inputVal : '',
+        quality      : document.getElementById('longVidQuality').value || '1080p',
+        audio_speed  : spd,
+        audio_pitch  : ptc,
+        output_folder: localStorage.getItem('output_folder') || ''
+      })
+    });
+    const d = await res.json();
+    if(d.error) {
+      addLog('⚠️ ' + d.error, 'error');
+    } else {
+      addLog('🚀 Long video conversion task launched in background!', 'success');
+    }
+  } catch(err) {
+    addLog('❌ Request failed: ' + err, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🛡️ Convert Long Video to Copyright-Free';
+  }
+}
+
+// ── Run ManifestBot ────────────────────────────────────────────
+async function runManifestBot() {
+  const btn = document.getElementById('runMbBtn');
+  btn.disabled=true; btn.innerHTML='⏳ Generating…';
+  const res = await fetch('/api/run-manifestbot',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      topic:document.getElementById('mbTopic').value,
+      gemini_api_key: localStorage.getItem('gemini_api_key') || '',
+      output_folder: localStorage.getItem('output_folder') || ''
+    })
+  });
+  const d = await res.json();
+  if(d.error){ addLog('⚠️ '+d.error,'warn'); }
+}
+
+// ── Status polling ─────────────────────────────────────────────
+async function fetchStatus() {
+  try{
+    const folder = localStorage.getItem('output_folder') || '';
+    const r = await fetch('/api/status?output_folder=' + encodeURIComponent(folder));
+    const d = await r.json();
+    const fbBtn = document.getElementById('runFbBtn');
+    const fbSt  = document.getElementById('fbStatus');
+    if(!d.floodbot_running){
+      fbBtn.disabled=false; fbBtn.innerHTML='🚀 Run FloodBot';
+      fbSt.innerHTML='<span class="pulse"></span>Idle'; fbSt.className='badge badge-g';
+      document.getElementById('fbProg').classList.remove('vis');
+    } else {
+      fbSt.innerHTML='<span class="pulse"></span>Running'; fbSt.className='badge badge-r';
+    }
+    const mbBtn = document.getElementById('runMbBtn');
+    const mbSt  = document.getElementById('mbStatus');
+    if(!d.manifestbot_running){
+      mbBtn.disabled=false; mbBtn.innerHTML='📋 Generate Metadata';
+      mbSt.innerHTML='<span class="pulse"></span>Idle'; mbSt.className='badge badge-g';
+    } else {
+      mbSt.innerHTML='<span class="pulse"></span>Running'; mbSt.className='badge badge-r';
+    }
+    renderFiles(d.output_files);
+    if(!d.ffmpeg_ok){
+      const b=document.getElementById('sysBadge');
+      b.className='badge badge-r'; b.innerHTML='<span class="pulse"></span>FFmpeg Missing';
+    }
+  }catch(e){}
+}
+
+// ── Output files ───────────────────────────────────────────────
+async function refreshFiles(){
+  const folder = localStorage.getItem('output_folder') || '';
+  const r=await fetch('/api/output-files?output_folder=' + encodeURIComponent(folder));
+  renderFiles(await r.json());
+}
+async function openOutputFolder(){
+  const folder = localStorage.getItem('output_folder') || '';
+  await fetch('/api/open-output-folder', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({output_folder: folder})
+  });
+}
+async function clearHistory() {
+  if (!confirm("Are you sure you want to delete all output videos and metadata cards from history? This cannot be undone.")) {
+    return;
+  }
+  const folder = localStorage.getItem('output_folder') || '';
+  try {
+    const res = await fetch('/api/clear-history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ output_folder: folder })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      showToast(`🗑 Cleared ${d.deleted || 0} file(s) from history!`);
+      refreshFiles();
+    } else {
+      alert("Error: " + d.error);
+    }
+  } catch(e) {
+    alert("Connection error: " + e.message);
+  }
+}
+function renderFiles(files){
+  const el=document.getElementById('fileList');
+  document.getElementById('sTotal').textContent = files.length;
+  const sz = files.reduce((a,f)=>a+f.size_mb,0);
+  document.getElementById('sSize').textContent = sz.toFixed(1)+' MB';
+  if(!files.length){
+    el.innerHTML='<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No files yet — run FloodBot first!</p>';
+    return;
+  }
+  const folder = localStorage.getItem('output_folder') || '';
+  el.innerHTML = files.map(f=>`
+    <div class="file-item">
+      <div>
+        <div class="file-name">🎬 ${escHtml(f.name)}</div>
+        <div class="file-meta">${f.size_mb} MB</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        ${f.has_card?`<button class="btn btn-ghost btn-sm" onclick='showCard(${JSON.stringify(f.card_text)})'>📄 Card</button>`:''}
+        <a href="/output/${encodeURIComponent(f.name)}?output_folder=${encodeURIComponent(folder)}" target="_blank" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;text-decoration:none">📥 View</a>
+        <button class="btn btn-ghost btn-sm" style="color:var(--r)" onclick='openUploadModal(${JSON.stringify(f.name)}, ${JSON.stringify(f.card_text || "")})'>📤 Multi-Upload</button>
+        <button class="btn btn-ghost btn-sm" style="color:#00ff88" onclick='openYtUploadModal(${JSON.stringify(f.name)}, ${JSON.stringify(f.card_text || "")})'>🎥 YouTube Upload</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── Logs ───────────────────────────────────────────────────────
+function connectLogs(){
+  const es=new EventSource('/api/logs');
+  es.onmessage=e=>{
+    const d=JSON.parse(e.data);
+    if(d.level==='ping')return;
+    addLog(d.msg,d.level,d.ts);
+  };
+  es.onerror=()=>setTimeout(connectLogs,3000);
+}
+function addLog(msg,level='info',ts=''){
+  const con=document.getElementById('console');
+  const div=document.createElement('div');
+  div.className='log-'+level;
+  div.innerHTML=(ts?`<span class="log-ts">${ts}</span>`:'')+escHtml(msg);
+  con.appendChild(div);
+  if(++logCount>300) con.removeChild(con.firstChild);
+  con.scrollTop=con.scrollHeight;
+  if(msg.includes('[Done]')||msg.includes('complete')||msg.includes('finished')) refreshFiles();
+}
+function clearConsole(){ document.getElementById('console').innerHTML=''; logCount=0; }
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Progress ───────────────────────────────────────────────────
+let pTimer, pVal=0;
+function animateProg(){
+  clearInterval(pTimer); pVal=0;
+  pTimer=setInterval(()=>{ if(pVal<88){ pVal+=Math.random()*2.5; setPct(pVal); } },900);
+}
+function setPct(v){
+  document.getElementById('fbFill').style.width=v+'%';
+  document.getElementById('fbPct').textContent=Math.round(v)+'%';
+}
+
+// ── Modal ──────────────────────────────────────────────────────
+function showCard(txt){ document.getElementById('cardTxt').textContent=txt; document.getElementById('cardModal').classList.add('open'); }
+function closeCard()  { document.getElementById('cardModal').classList.remove('open'); }
+function copyCard()   {
+  navigator.clipboard.writeText(document.getElementById('cardTxt').textContent);
+  const b=event.target; b.textContent='✅ Copied!'; setTimeout(()=>b.textContent='📋 Copy',2000);
+}
+
+function openBulkModal() {
+  document.getElementById('bulkUrls').value = '';
+  document.getElementById('bulkModal').classList.add('open');
+}
+function closeBulkModal() {
+  document.getElementById('bulkModal').classList.remove('open');
+}
+
+// ── 📂 Local File Handling ──────────────────────────────────────
+async function openFileBrowser(jobIdx) {
+  try {
+    const res = await fetch('/api/browse-files', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ directory: '__dialog__' })
+    });
+    const d = await res.json();
+    if (d.files && d.files.length > 0) {
+      const f = d.files[0];
+      jobs[jobIdx].input = f.path;
+      await loadVideoInfo(jobIdx, f.path);
+    }
+  } catch(e) {
+    // Fallback: show scan modal if dialog not supported
+    openScanDirModal(jobIdx);
+  }
+}
+
+function handleFileDrop(event, jobIdx) {
+  event.preventDefault();
+  document.getElementById('dz-' + jobIdx)?.classList.remove('dragover');
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+  // DataTransferItem path (Electron/File System Access API)
+  const path = file.path || file.name;
+  jobs[jobIdx].input = path;
+  loadVideoInfo(jobIdx, path);
+}
+
+async function loadVideoInfo(jobIdx, path) {
+  if (!path || path.length < 3) { renderJobs(); return; }
+  try {
+    const res = await fetch('/api/video-info', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ path })
+    });
+    const info = await res.json();
+    if (info.duration) {
+      jobs[jobIdx].videoInfo = info;
+      jobs[jobIdx].input = path;
+      // Auto-set end time based on video duration
+      if (!jobs[jobIdx].useHook && jobs[jobIdx].end <= 0) {
+        jobs[jobIdx].end = Math.min(30, Math.floor(info.duration));
+      }
+    } else {
+      jobs[jobIdx].videoInfo = null;
+    }
+  } catch(e) {
+    jobs[jobIdx].videoInfo = null;
+  }
+  renderJobs();
+}
+
+// ── 📁 Scan Directory Modal ──────────────────────────────────────
+let _scanTargetJob = null;
+
+function openScanDirModal(jobIdx = null) {
+  _scanTargetJob = jobIdx;
+  document.getElementById('scanDirInput').value = '';
+  document.getElementById('scanFileGrid').innerHTML = '';
+  document.getElementById('scanDirModal').classList.add('open');
+}
+function closeScanDirModal() {
+  document.getElementById('scanDirModal').classList.remove('open');
+}
+
+async function runDirScan() {
+  const dir = document.getElementById('scanDirInput').value.trim();
+  const grid = document.getElementById('scanFileGrid');
+  grid.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">⏳ Scanning...</div>';
+  try {
+    const res = await fetch('/api/browse-files', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ directory: dir || '.' })
+    });
+    const d = await res.json();
+    if (d.error) { grid.innerHTML = `<div style="color:#ff453a;font-size:12px">${d.error}</div>`; return; }
+    if (!d.files?.length) { grid.innerHTML = '<div style="color:var(--muted);font-size:12px">No video files found.</div>'; return; }
+    grid.innerHTML = d.files.map(f => `
+      <div class="file-tile" onclick="selectScannedFile('${f.path.replace(/'/g,"\\'")}')" title="${f.path}">
+        <div class="file-tile-icon">🎬</div>
+        <div class="file-tile-name">${f.name}</div>
+        <div class="file-tile-size">${f.size_mb} MB</div>
+      </div>`).join('');
+  } catch(e) {
+    grid.innerHTML = `<div style="color:#ff453a;font-size:12px">${e.message}</div>`;
+  }
+}
+
+function selectScannedFile(path) {
+  if (_scanTargetJob !== null) {
+    jobs[_scanTargetJob].input = path;
+    loadVideoInfo(_scanTargetJob, path);
+    closeScanDirModal();
+  } else {
+    // Add as new job
+    const n = jobs.length + 1;
+    const j = { type:'file', input: path, start:0, end:30, aspectRatio:'9:16',
+                 burnCaptions:true, output:`short_${String(n).padStart(2,'0')}.mp4`, useHook:true, expanded:true };
+    jobs.push(j);
+    loadVideoInfo(jobs.length - 1, path);
+    closeScanDirModal();
+  }
+}
+
+function addAllScannedFiles() {
+  const tiles = document.querySelectorAll('#scanFileGrid .file-tile');
+  tiles.forEach(tile => {
+    const path = tile.title;
+    if (!path) return;
+    const n = jobs.length + 1;
+    jobs.push({ type:'file', input:path, start:0, end:30, aspectRatio:'9:16',
+                burnCaptions:true, output:`short_${String(n).padStart(2,'0')}.mp4`, useHook:true, expanded:false });
+  });
+  renderJobs();
+  closeScanDirModal();
+  showToast(`✅ Added ${tiles.length} videos as jobs!`);
+}
+
+// ── ▶ Video Player Modal ─────────────────────────────────────────
+function previewVideo(path) {
+  if (!path) { alert('No video path set.'); return; }
+  const modal = document.getElementById('playerModal');
+  const vid   = document.getElementById('playerVideo');
+  vid.src = `/api/serve-video?path=${encodeURIComponent(path)}`;
+  modal.classList.add('open');
+  vid.play().catch(() => {});
+}
+function closePlayerModal() {
+  const modal = document.getElementById('playerModal');
+  modal.classList.remove('open');
+  const vid = document.getElementById('playerVideo');
+  vid.pause();
+  vid.src = '';
+}
+
+// ── 📈 Virality Diagnostics Modal ──────────────────────────────
+async function predictVirality(idx) {
+  const job = jobs[idx];
+  const geminiKey = localStorage.getItem('gemini_api_key') || document.getElementById('geminiKey')?.value?.trim() || '';
+  if (!geminiKey) {
+    alert("Please set your Gemini API Key in Settings first!");
+    return;
+  }
+  
+  document.getElementById('vScoreVal').textContent = "--";
+  document.getElementById('vHookGrade').textContent = "CALCULATING...";
+  document.getElementById('vPositives').innerHTML = "";
+  document.getElementById('vNegatives').innerHTML = "";
+  document.getElementById('vTips').innerHTML = "";
+  
+  const modal = document.getElementById('viralityModal');
+  modal.classList.add('open');
+  
+  try {
+    const videoPath = job.type === 'file' ? (job.input || 'input.mp4') : 'input.mp4';
+    const youtubeUrl = job.type === 'yt' ? job.ytUrl : '';
+    
+    addLog("📊 Evaluating video virality score and diagnostic tips...", "info");
+    const res = await fetch('/api/evaluate-virality', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        video_path: videoPath,
+        youtube_url: youtubeUrl,
+        gemini_api_key: geminiKey
+      })
+    });
+    
+    const data = await res.json();
+    if (data.error) {
+      alert("Evaluation failed: " + data.error);
+      closeViralityModal();
+      return;
+    }
+    
+    document.getElementById('vScoreVal').textContent = data.virality_score + "/100";
+    document.getElementById('vHookGrade').textContent = data.hook_grade;
+    
+    document.getElementById('vPositives').innerHTML = (data.positives || []).map(p => `<li>• ${esc(p)}</li>`).join('');
+    document.getElementById('vNegatives').innerHTML = (data.negatives || []).map(n => `<li>• ${esc(n)}</li>`).join('');
+    document.getElementById('vTips').innerHTML = (data.actionable_tips || []).map(t => `<li>• ${esc(t)}</li>`).join('');
+    showToast("📈 Virality diagnostics loaded!");
+  } catch(e) {
+    alert("Connection error: " + e.message);
+    closeViralityModal();
+  }
+}
+function closeViralityModal() {
+  document.getElementById('viralityModal').classList.remove('open');
+}
+
+
+function openUploadModal(filename, cardText) {
+  document.getElementById('uploadFileName').value = filename;
+  document.getElementById('uploadCaption').value = cardText || '';
+  document.getElementById('uploadModal').classList.add('open');
+}
+
+function closeUploadModal() {
+  document.getElementById('uploadModal').classList.remove('open');
+}
+
+// ── YouTube Auto-Uploader Handlers ───────────────────────────
+async function saveYoutubeSecrets() {
+  const clientId = document.getElementById('ytClientId').value.trim();
+  const clientSecret = document.getElementById('ytClientSecret').value.trim();
+  
+  if (!clientId || !clientSecret) {
+    alert("Please enter both Client ID and Client Secret!");
+    return;
+  }
+  
+  try {
+    const res = await fetch('/api/youtube-setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      alert("YouTube secrets saved successfully! You can now click Login.");
+      document.getElementById('ytLoginBtn').disabled = false;
+    } else {
+      alert("Error: " + d.error);
+    }
+  } catch(e) {
+    alert("Setup failed: " + e.message);
+  }
+}
+
+async function loginYoutube() {
+  try {
+    const res = await fetch('/api/youtube-login');
+    const d = await res.json();
+    if (d.authorization_url) {
+      window.open(d.authorization_url, 'youtube_oauth', 'width=600,height=700,scrollbars=yes');
+      showToast("🔑 Google authentication window opened!");
+    } else {
+      alert("Login initiation failed: " + (d.error || "Check your secrets config."));
+    }
+  } catch(e) {
+    alert("Login initiation failed: " + e.message);
+  }
+}
+
+async function checkYoutubeStatus() {
+  try {
+    const res = await fetch('/api/youtube-status');
+    const d = await res.json();
+    const statusEl = document.getElementById('ytStatus');
+    const loginBtn = document.getElementById('ytLoginBtn');
+    
+    if (d.logged_in) {
+      statusEl.textContent = "CONNECTED (ACTIVE)";
+      statusEl.style.color = "#00ff88";
+      loginBtn.disabled = true;
+      loginBtn.textContent = "Logged In";
+      document.getElementById('ytClientId').disabled = true;
+      document.getElementById('ytClientSecret').disabled = true;
+      if (d.client_id) {
+        document.getElementById('ytClientId').value = d.client_id;
+        document.getElementById('ytClientSecret').value = "••••••••••••••••";
+      }
+    } else {
+      statusEl.textContent = "OFFLINE";
+      statusEl.style.color = "#ff3333";
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Login";
+      document.getElementById('ytClientId').disabled = false;
+      document.getElementById('ytClientSecret').disabled = false;
+    }
+  } catch(e) {}
+}
+
+function openYtUploadModal(filename, cardText) {
+  let title = "";
+  let desc = "";
+  let tags = "";
+  
+  if (cardText) {
+    const lines = cardText.split("\n");
+    lines.forEach(l => {
+      if (l.toLowerCase().startsWith("title:")) {
+        title = l.substring(6).trim();
+      } else if (l.toLowerCase().startsWith("description:")) {
+        desc = l.substring(12).trim();
+      } else if (l.toLowerCase().startsWith("tags:") || l.toLowerCase().startsWith("hashtags:")) {
+        tags = l.substring(l.indexOf(":") + 1).trim();
+      }
+    });
+    if (!title) title = filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+    if (!desc) desc = cardText;
+  } else {
+    title = filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+  }
+
+  if (title.length > 100) title = title.substring(0, 97) + "...";
+
+  document.getElementById('ytUploadFileName').value = filename;
+  document.getElementById('ytUploadTitle').value = title;
+  document.getElementById('ytUploadDesc').value = desc;
+  document.getElementById('ytUploadTags').value = tags;
+  document.getElementById('ytUploadModal').classList.add('open');
+}
+
+function closeYtUploadModal() {
+  document.getElementById('ytUploadModal').classList.remove('open');
+}
+
+async function submitYtUpload() {
+  const filename = document.getElementById('ytUploadFileName').value;
+  const title = document.getElementById('ytUploadTitle').value;
+  const desc = document.getElementById('ytUploadDesc').value;
+  const tags = document.getElementById('ytUploadTags').value;
+  const privacy = document.getElementById('ytUploadPrivacy').value;
+  
+  if (!title) {
+    alert("Video Title is required!");
+    return;
+  }
+  
+  closeYtUploadModal();
+  addLog("🚀 Initiating auto-upload to YouTube for: " + filename, "info");
+  
+  try {
+    const res = await fetch('/api/youtube-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: filename,
+        title: title,
+        description: desc,
+        tags: tags,
+        privacy: privacy,
+        output_folder: localStorage.getItem('output_folder') || ''
+      })
+    });
+    
+    const d = await res.json();
+    if (d.ok) {
+      addLog("📈 YouTube upload job started in background!", "success");
+    } else {
+      addLog("❌ YouTube upload failed: " + d.error, "error");
+    }
+  } catch(e) {
+    addLog("❌ Connection error during upload: " + e.message, "error");
+  }
+}
+
+async function startAutomatedUpload() {
+  const filename = document.getElementById('uploadFileName').value;
+  const caption = document.getElementById('uploadCaption').value;
+  const token = document.getElementById('uploadToken').value.trim();
+  
+  const platforms = [];
+  if (document.getElementById('upYt').checked) platforms.push('youtube');
+  if (document.getElementById('upFb').checked) platforms.push('facebook');
+  if (document.getElementById('upIg').checked) platforms.push('instagram');
+  if (document.getElementById('upTk').checked) platforms.push('tiktok');
+  
+  if (!platforms.length) {
+    alert("Please select at least one platform to upload!");
+    return;
+  }
+  
+  closeUploadModal();
+  addLog("📤 Starting automated social uploads for: " + filename, "info");
+  
+  try {
+    const res = await fetch('/api/upload-video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename: filename,
+        caption: caption,
+        token: token,
+        platforms: platforms,
+        output_folder: localStorage.getItem('output_folder') || ''
+      })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      addLog("🚀 Auto-Uploader worker started successfully in the background!", "success");
+    } else {
+      addLog("❌ Upload failed to start: " + d.error, "error");
+    }
+  } catch (e) {
+    addLog("❌ Upload request connection error: " + e.message, "error");
+  }
+}
+function submitBulkUrls() {
+  const text = document.getElementById('bulkUrls').value;
+  const urls = text.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+  if (!urls.length) {
+    closeBulkModal();
+    return;
+  }
+  
+  closeBulkModal();
+  
+  urls.forEach(url => {
+    const n = jobs.length + 1;
+    const newJob = {
+      type: "yt",
+      ytUrl: url,
+      start: 0,
+      end: 30,
+      useHook: true,
+      aspectRatio: "9:16",
+      burnCaptions: true,
+      output: `yt_short_${String(n).padStart(2,'0')}.mp4`,
+      expanded: false
+    };
+    jobs.push(newJob);
+    renderJobs();
+    fetchYTMetadata(jobs.length - 1, url);
+  });
+}
+
+async function findViral() {
+  const btn = document.getElementById('viralSearchBtn');
+  const kw = document.getElementById('viralKeyword').value.trim();
+  const tf = document.getElementById('viralTimeframe').value;
+  const listEl = document.getElementById('viralList');
+  
+  if(!kw) {
+    alert("Please enter a keyword first!");
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Searching...';
+  listEl.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px;animation:pulse 1s infinite">🔍 Searching YouTube and filtering trends...</div>';
+  
+  try {
+    const res = await fetch('/api/find-viral-videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword: kw, timeframe: tf })
+    });
+    const data = await res.json();
+    if(data.error) {
+      listEl.innerHTML = `<div style="font-size:12px;color:#ff453a;text-align:center;padding:10px">❌ Error: ${escHtml(data.error)}</div>`;
+    } else if(!data.videos || !data.videos.length) {
+      listEl.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">No viral videos found for this timeframe. Try a wider filter!</div>';
+    } else {
+      listEl.innerHTML = data.videos.map(v => {
+        const views = v.view_count >= 1000000 
+          ? (v.view_count / 1000000).toFixed(1) + 'M' 
+          : v.view_count >= 1000 
+            ? (v.view_count / 1000).toFixed(0) + 'K' 
+            : v.view_count;
+        return `
+          <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:var(--rsm);padding:8px;display:flex;gap:10px;align-items:center">
+            <img src="${v.thumbnail}" style="width:70px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;border:1px solid var(--border);flex-shrink:0"/>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:600;color:white;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">👁️ ${views} views | 🕒 ${v.uploader}</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="addViralToJobs('${v.url}')">＋ Add</button>
+          </div>
+        `;
+      }).join('');
+    }
+  } catch(e) {
+    listEl.innerHTML = `<div style="font-size:12px;color:#ff453a;text-align:center;padding:10px">❌ Error: ${escHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Search';
+  }
+}
+
+function addViralToJobs(url) {
+  const n = jobs.length + 1;
+  const newJob = {
+    type: "yt",
+    ytUrl: url,
+    start: 0,
+    end: 30,
+    useHook: true,
+    aspectRatio: "9:16",
+    burnCaptions: true,
+    output: `yt_short_${String(n).padStart(2,'0')}.mp4`,
+    expanded: true
+  };
+  jobs.push(newJob);
+  renderJobs();
+  fetchYTMetadata(jobs.length - 1, url);
+  
+  // Smooth scroll to job list to show the added job
+  document.getElementById('jobList').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+
+<!-- ── Scan Directory Modal ─────────────────────────────────── -->
+<div id="scanDirModal" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:8000;
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(10px);"
+  class="scan-modal-wrap">
+<div style="background:#13131f;border:1px solid rgba(255,255,255,0.1);border-radius:20px;
+  padding:28px;width:min(680px,95vw);max-height:85vh;display:flex;flex-direction:column;gap:16px;overflow:hidden;">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:16px;font-weight:800;">📂 Scan Local Folder for Videos</div>
+    <button onclick="closeScanDirModal()"
+      style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:white;
+             width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;">✕</button>
+  </div>
+  <div class="scan-row">
+    <input type="text" id="scanDirInput" placeholder="/Users/yourname/Downloads/Videos or ~/Desktop"/>
+    <button class="btn btn-r btn-sm" onclick="runDirScan()">🔍 Scan</button>
+  </div>
+  <div id="scanFileGrid" class="file-grid" style="flex:1;overflow-y:auto;min-height:80px;">
+    <div style="color:var(--muted);font-size:12px;padding:8px;">Enter a folder path above and click Scan.</div>
+  </div>
+  <div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid rgba(255,255,255,.08);padding-top:14px;">
+    <button class="btn btn-ghost btn-sm" onclick="addAllScannedFiles()">✅ Add All as Jobs</button>
+    <button class="btn btn-ghost btn-sm" onclick="closeScanDirModal()">Cancel</button>
+  </div>
+</div>
+</div>
+
+<!-- ── Video Player Modal ───────────────────────────────────── -->
+<div id="playerModal" class="player-modal" onclick="if(event.target===this)closePlayerModal()">
+  <button class="player-modal-close" onclick="closePlayerModal()">✕</button>
+  <video id="playerVideo" controls playsinline
+    style="max-width:90vw;max-height:80vh;border-radius:14px;box-shadow:0 0 60px rgba(0,0,0,.8);">
+    Your browser doesn't support HTML5 video.
+  </video>
+  <div style="color:rgba(255,255,255,0.5);font-size:12px;">Click outside or ✕ to close</div>
+</div>
+
+<!-- ── Virality Evaluation Modal ── -->
+<div id="viralityModal" style="position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:8000;
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(10px);" class="scan-modal-wrap">
+<div style="background:#030803;border:1px solid #00ff00;border-radius:4px;box-shadow:0 0 25px rgba(0,255,0,0.3);
+  padding:24px;width:min(600px,95vw);max-height:85vh;display:flex;flex-direction:column;gap:16px;overflow:hidden;font-family:'JetBrains Mono',monospace;">
+  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,255,0,0.3);padding-bottom:10px">
+    <div style="font-size:16px;font-weight:800;color:#00ff00;display:flex;align-items:center;gap:8px">📈 VIRALITY_DIAGNOSTICS.EXE</div>
+    <button onclick="closeViralityModal()"
+      style="background:rgba(0,255,0,0.1);border:1px solid #00ff00;color:#00ff00;
+             width:32px;height:32px;border-radius:2px;cursor:pointer;font-size:16px;">✕</button>
+  </div>
+  
+  <div style="display:flex;gap:20px;align-items:center;background:rgba(0,255,0,0.03);border:1px solid rgba(0,255,0,0.15);padding:14px">
+    <div style="text-align:center">
+      <div style="font-size:10px;color:var(--muted)">SCORE</div>
+      <div id="vScoreVal" style="font-size:42px;font-weight:900;color:#00ff00;text-shadow:0 0 10px rgba(0,255,0,0.5)">--</div>
+    </div>
+    <div style="height:40px;width:1px;background:rgba(0,255,0,0.3)"></div>
+    <div>
+      <div style="font-size:10px;color:var(--muted)">HOOK GRADE</div>
+      <div id="vHookGrade" style="font-size:24px;font-weight:900;color:#00ff00">--</div>
+    </div>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;font-size:12px;padding-right:4px">
+    <div>
+      <div style="color:#00ff00;font-weight:700;margin-bottom:4px">🟢 POSITIVE TRIGGERS:</div>
+      <ul id="vPositives" style="list-style-type:none;padding-left:10px;line-height:1.6"></ul>
+    </div>
+    <div>
+      <div style="color:#ff3333;font-weight:700;margin-bottom:4px">🔴 RETENTION HAZARDS:</div>
+      <ul id="vNegatives" style="list-style-type:none;padding-left:10px;line-height:1.6"></ul>
+    </div>
+    <div>
+      <div style="color:#ffcc00;font-weight:700;margin-bottom:4px">⚡ ACTIONABLE RECOMMENDATIONS:</div>
+      <ul id="vTips" style="list-style-type:none;padding-left:10px;line-height:1.6"></ul>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;border-top:1px solid rgba(0,255,0,0.2);padding-top:14px;">
+    <button class="btn btn-b btn-sm" onclick="closeViralityModal()">CLOSE DIAGNOSTICS</button>
+  </div>
+</div>
+</div>
+
+<style>
+  #scanDirModal.open, #playerModal.open, #viralityModal.open { display:flex !important; }
+</style>
+
+</body>
+</html>

@@ -1,0 +1,6 @@
+.venv/
+output/
+__pycache__/
+.transcript_cache/
+.DS_Store
+YOUTUBE_SHORTS_WINDOWS.zip
