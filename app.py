@@ -313,7 +313,11 @@ def youtube_metadata():
             ytdlp,
             "--skip-download",
             "--dump-json",
-            "--no-playlist"
+            "--no-playlist",
+            "--extractor-args", "youtube:player-client=ios,android,web_creator",
+            "--user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "--referer", "https://www.youtube.com/",
+            "--no-cache-dir"
         ] + opt + [url]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=20, env=env)
@@ -358,6 +362,10 @@ def find_viral_videos():
         ytdlp,
         "--skip-download",
         "--dump-json",
+        "--extractor-args", "youtube:player-client=ios,android,web_creator",
+        "--user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "--referer", "https://www.youtube.com/",
+        "--no-cache-dir",
         f"ytsearch30:{keyword}"
     ]
     try:
