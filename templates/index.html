@@ -1534,8 +1534,8 @@
 <script>
 // ── State ──────────────────────────────────────────────────────
 let jobs = [
-  { type:"file", input:"input.mp4", start:15, end:45, output:"short_01.mp4",
-    useHook:false, aspectRatio:"9:16", burnCaptions:true, expanded:true },
+  { type:"yt", ytUrl:"", start:0, end:30, useHook:true, aspectRatio:"9:16", burnCaptions:true,
+    output:"short_01.mp4", expanded:true, autoBleep:false, sensorBlur:false, beatSync:false, dubLang:"" }
 ];
 let selectedColor = "yellow";
 let logCount = 0;

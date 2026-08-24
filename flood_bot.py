@@ -279,9 +279,9 @@ if os.path.exists(ffmpeg_dir):
 from faster_whisper import WhisperModel as _FasterWhisperModel
 
 def extract_audio_for_api(video_path: str) -> Optional[str]:
-    """Extracts audio channel from video as a highly compressed mono MP3 for API upload."""
+    """Extracts audio channel from video as a lightweight 16kHz mono WAV for API upload."""
     import tempfile
-    temp_audio = os.path.join(tempfile.gettempdir(), f"temp_audio_{os.path.basename(video_path)}.mp3")
+    temp_audio = os.path.join(tempfile.gettempdir(), f"temp_audio_{os.path.basename(video_path)}.wav")
     if os.path.exists(temp_audio):
         try:
             os.remove(temp_audio)
@@ -292,10 +292,9 @@ def extract_audio_for_api(video_path: str) -> Optional[str]:
         FFMPEG_BIN, "-y",
         "-i", video_path,
         "-vn",                  # disable video
-        "-acodec", "libmp3lame",
+        "-c:a", "pcm_s16le",    # universal PCM 16-bit
         "-ac", "1",             # mono
         "-ar", "16000",         # 16kHz
-        "-ab", "32k",           # 32kbps (extremely light!)
         temp_audio
     ]
     try:
@@ -324,10 +323,10 @@ def _groq_transcribe(audio_path: str, api_key: str, language: str = "en") -> Opt
             api_audio = extracted
             is_temp = True
             
-    try:
+        mime = "audio/wav" if api_audio.endswith(".wav") else "audio/mp3" if api_audio.endswith(".mp3") else "audio/m4a"
         with open(api_audio, "rb") as f:
             files = {
-                "file": (os.path.basename(api_audio), f, "audio/mp3")
+                "file": (os.path.basename(api_audio), f, mime)
             }
             data = {
                 "model": "whisper-large-v3-turbo",

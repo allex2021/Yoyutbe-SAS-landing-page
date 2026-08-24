@@ -693,6 +693,8 @@ def run_floodbot():
                     if use_hook and top_n > 1:
                         push_log(f"[Hook] Detecting top {top_n} viral hook moments...", "info")
                         hooks = fb.detect_top_hooks(local_video_path, clip_duration=hook_duration, top_n=top_n, gemini_api_key=gemini_api_key, groq_api_key=groq_api_key)
+                        if not hooks:
+                            hooks = [(0.0, float(hook_duration), 50.0)]
                         
                         base_out, ext = os.path.splitext(out_name)
                         
