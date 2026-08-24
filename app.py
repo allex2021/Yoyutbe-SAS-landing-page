@@ -58,19 +58,36 @@ def push_log(msg, level="info"):
     log_queue.put({"msg": msg, "level": level, "ts": time.strftime("%H:%M:%S")})
 
 
+def sanitize_output_folder(custom_folder=None):
+    """Sanitizes output folder path and falls back to server default if path is invalid/incompatible."""
+    if not custom_folder or not str(custom_folder).strip():
+        return OUTPUT_FOLDER
+    folder = str(custom_folder).strip()
+    # If running on Linux/Railway, ignore Windows/Mac drive paths like C:\ or /Users/ if they don't exist
+    if sys.platform != "win32" and (folder.startswith(("C:", "D:", "c:", "d:", "\\")) or (folder.startswith("/Users/") and not os.path.exists(folder))):
+        return OUTPUT_FOLDER
+    try:
+        folder = os.path.expanduser(folder)
+        os.makedirs(folder, exist_ok=True)
+        return folder
+    except Exception:
+        return OUTPUT_FOLDER
+
+
 def get_output_files(custom_folder=None):
-    folder = custom_folder or OUTPUT_FOLDER
-    folder = os.path.expanduser(folder)
-    os.makedirs(folder, exist_ok=True)
+    folder = sanitize_output_folder(custom_folder)
     files = []
-    for f in sorted(os.listdir(folder)):
-        if not f.lower().endswith(".mp4"): continue
-        path    = os.path.join(folder, f)
-        size_mb = round(os.path.getsize(path) / (1024**2), 2)
-        card    = f.replace(".mp4", "_upload_card.txt")
-        card_p  = os.path.join(folder, card)
-        card_tx = open(card_p, encoding="utf-8").read() if os.path.exists(card_p) else ""
-        files.append({"name": f, "size_mb": size_mb, "has_card": os.path.exists(card_p), "card_text": card_tx})
+    try:
+        for f in sorted(os.listdir(folder)):
+            if not f.lower().endswith(".mp4"): continue
+            path    = os.path.join(folder, f)
+            size_mb = round(os.path.getsize(path) / (1024**2), 2)
+            card    = f.replace(".mp4", "_upload_card.txt")
+            card_p  = os.path.join(folder, card)
+            card_tx = open(card_p, encoding="utf-8").read() if os.path.exists(card_p) else ""
+            files.append({"name": f, "size_mb": size_mb, "has_card": os.path.exists(card_p), "card_text": card_tx})
+    except Exception:
+        pass
     return files
 
 
@@ -599,8 +616,8 @@ def run_floodbot():
     jobs = data.get("jobs", [])
     gemini_api_key = data.get("gemini_api_key", "").strip()
     groq_api_key = data.get("groq_api_key", "").strip()
-    output_folder = data.get("output_folder", "").strip() or OUTPUT_FOLDER
-    output_folder = os.path.expanduser(output_folder)
+    output_folder = sanitize_output_folder(data.get("output_folder", ""))
+    push_log(f"📁 Output directory: {output_folder}", "info")
 
     def worker():
         is_running["floodbot"] = True
@@ -867,8 +884,7 @@ def process_long_video_api():
     quality       = data.get("quality", "1080p")
     audio_speed   = float(data.get("audio_speed", 1.02))
     audio_pitch   = float(data.get("audio_pitch", 1.05))
-    output_folder = data.get("output_folder", "").strip() or os.path.join(BASE_DIR, "output")
-    os.makedirs(output_folder, exist_ok=True)
+    output_folder = sanitize_output_folder(data.get("output_folder", ""))
 
     def worker():
         is_running["floodbot"] = True
