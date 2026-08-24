@@ -2253,14 +2253,24 @@ function renderFiles(files){
 }
 
 // ── Logs ───────────────────────────────────────────────────────
+let activeEventSource = null;
 function connectLogs(){
-  const es=new EventSource('/api/logs');
-  es.onmessage=e=>{
+  if(activeEventSource) {
+    try { activeEventSource.close(); } catch(e){}
+  }
+  activeEventSource = new EventSource('/api/logs');
+  activeEventSource.onmessage=e=>{
     const d=JSON.parse(e.data);
     if(d.level==='ping')return;
     addLog(d.msg,d.level,d.ts);
   };
-  es.onerror=()=>setTimeout(connectLogs,3000);
+  activeEventSource.onerror=()=>{
+    if(activeEventSource) {
+      activeEventSource.close();
+      activeEventSource = null;
+    }
+    setTimeout(connectLogs, 5000);
+  };
 }
 function addLog(msg,level='info',ts=''){
   const con=document.getElementById('console');
