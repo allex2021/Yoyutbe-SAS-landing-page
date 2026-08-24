@@ -311,7 +311,8 @@ def _groq_transcribe(audio_path: str, api_key: str, language: str = "en") -> Opt
     import requests
     url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {
-        "Authorization": f"Bearer {api_key}"
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     }
     
     # Extract audio if it is a video file or if it's too heavy
@@ -366,6 +367,7 @@ def _groq_transcribe(audio_path: str, api_key: str, language: str = "en") -> Opt
                     "words": words
                 })
                 
+            print(f"[Groq API] Transcription successful ({len(out_segments)} segments).")
             return {"segments": out_segments}
         else:
             print(f"[Groq API Error] HTTP {r.status_code}: {r.text}")
@@ -396,9 +398,9 @@ def _fw_transcribe(model, audio_path: str, language: str = "en", use_cache: bool
             return result
         print("[Whisper] Groq API transcription failed, falling back to local model...")
 
-    print("[Whisper] Running local faster-whisper transcription on CPU/GPU...")
+    print("[Whisper] Running local faster-whisper transcription on CPU (fast mode)...")
     segments_iter, _info = model.transcribe(
-        audio_path, language=language, word_timestamps=True, beam_size=5
+        audio_path, language=language, word_timestamps=True, beam_size=1, condition_on_previous_text=False
     )
     out_segments = []
     for seg in segments_iter:
@@ -767,13 +769,7 @@ def download_youtube(url: str, out_dir: str = ".") -> Optional[str]:
         except Exception as e:
             print(f"[YT-DLP Exception] {e}")
 
-    # final fallback: look for newest mp4
-    try:
-        mp4s = [os.path.join(out_dir, f) for f in os.listdir(out_dir) if f.endswith(".mp4")]
-        if mp4s:
-            return max(mp4s, key=os.path.getmtime)
-    except Exception:
-        pass
+    print("[YT-DLP Error] All YouTube download attempts failed. YouTube bot detection may have blocked this IP. Please upload your video directly or provide cookies.txt.")
     return None
 
 

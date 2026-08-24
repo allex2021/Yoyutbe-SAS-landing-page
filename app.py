@@ -509,7 +509,8 @@ def test_groq_key():
     url = "https://api.groq.com/openai/v1/models"
     headers = {
         "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     }
     try:
         req = urllib.request.Request(url, headers=headers, method="GET")
