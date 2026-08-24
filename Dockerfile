@@ -1,9 +1,12 @@
 # Use official lightweight Python image
 FROM python:3.11-slim
 
-# Install system dependencies (including ffmpeg and curl)
+# Install system dependencies (including ffmpeg, fonts, and curl)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    fonts-liberation \
+    fonts-dejavu-core \
+    fontconfig \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
