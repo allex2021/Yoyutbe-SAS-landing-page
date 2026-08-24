@@ -762,7 +762,18 @@ def download_youtube(url: str, out_dir: str = ".") -> Optional[str]:
             if result.returncode == 0:
                 lines = [l.strip() for l in result.stdout.splitlines() if l.strip().endswith(".mp4")]
                 if lines:
-                    return lines[-1]
+                    raw_path = lines[-1]
+                    d_dir = os.path.dirname(raw_path) or out_dir
+                    b_name = os.path.basename(raw_path)
+                    safe_name = re.sub(r'[^a-zA-Z0-9_\-.]', '_', b_name)
+                    safe_path = os.path.join(d_dir, safe_name)
+                    if raw_path != safe_path and os.path.exists(raw_path):
+                        try:
+                            os.replace(raw_path, safe_path)
+                            return safe_path
+                        except Exception:
+                            return raw_path
+                    return raw_path
             else:
                 # Log stderr warning to help diagnose if needed
                 print(f"[YT-DLP Warning] Attempt failed: {result.stderr.strip()[:180]}...")
@@ -1392,6 +1403,7 @@ def ffmpeg_render(
         "-af",  af_string,
         "-c:v", "libx264", "-preset", "veryfast",
         "-crf", preset["crf"],
+        "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k",
         "-map_metadata", "-1",
         output_name,
@@ -1401,16 +1413,28 @@ def ffmpeg_render(
         print("[Copyright-Free] Applying hue shift, zoom crop, speed variation, audio EQ...")
 
     print("[FFmpeg] Encoding video with filters and captions...")
-    # Run with auto-retry on failure
     result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if result.returncode != 0:
-        print(f"[Error] FFmpeg execution failed with code {result.returncode} — retrying once...")
-        print(f"[FFmpeg Stderr]: {result.stderr[-500:]}")
-        # Retry once (sometimes temp file locks cause transient failures)
-        result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-        if result.returncode != 0:
-            print(f"[Error] FFmpeg retry also failed with code {result.returncode}")
-            print(f"[FFmpeg Stderr]: {result.stderr[-500:]}")
+        print(f"[FFmpeg Warning] Primary render failed (code {result.returncode}): {result.stderr[-350:]}")
+        # Retry without subtitles if subtitles filter failed (common on minimal Linux containers)
+        vf_parts_no_sub = [p for p in vf_parts if not p.startswith("subtitles=")]
+        vf_string_no_sub = ",".join(vf_parts_no_sub) if vf_parts_no_sub else "null"
+        cmd_fallback = [
+            FFMPEG_BIN, "-y", "-i", input_mp4,
+            "-vf",  vf_string_no_sub,
+            "-af",  af_string,
+            "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", preset["crf"],
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            "-map_metadata", "-1",
+            output_name,
+        ]
+        result = subprocess.run(cmd_fallback, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            print("[FFmpeg] ✅ Video encoding complete (fallback mode without burn-in subs)!")
+        else:
+            print(f"[Error] FFmpeg retry also failed with code {result.returncode}: {result.stderr[-350:]}")
     else:
         print("[FFmpeg] ✅ Video encoding complete!")
 
@@ -1574,13 +1598,21 @@ def ffmpeg_trim_crop(
     ~3-5x faster than moviepy write_videofile.
     crop_w=0 means no crop (use full frame).
     """
-    duration = end_time - start_time
+    duration = max(0.5, end_time - start_time)
+
+    # Ensure all dimensions and coordinates are even numbers (required by libx264 yuv420p)
+    tw = int(target_w) - (int(target_w) % 2)
+    th = int(target_h) - (int(target_h) % 2)
 
     vf_parts = []
     if crop_w > 0 and crop_h > 0:
-        vf_parts.append(f"crop={crop_w}:{crop_h}:{crop_x}:{crop_y}")
-    vf_parts.append(f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease")
-    vf_parts.append(f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2")
+        cw = int(crop_w) - (int(crop_w) % 2)
+        ch = int(crop_h) - (int(crop_h) % 2)
+        cx = int(crop_x) - (int(crop_x) % 2)
+        cy = int(crop_y) - (int(crop_y) % 2)
+        vf_parts.append(f"crop={cw}:{ch}:{cx}:{cy}")
+    vf_parts.append(f"scale={tw}:{th}:force_original_aspect_ratio=decrease")
+    vf_parts.append(f"pad={tw}:{th}:(ow-iw)/2:(oh-ih)/2")
     vf_string = ",".join(vf_parts)
 
     cmd = [
@@ -1590,16 +1622,36 @@ def ffmpeg_trim_crop(
         "-t", str(duration),
         "-vf", vf_string,
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+        "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         output_path,
     ]
     r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
-        print(f"[FFmpeg Trim Error] Failed with code {r.returncode}:\n{r.stderr[-800:]}")
+        print(f"[FFmpeg Trim Error] Primary trim failed with code {r.returncode}:\n{r.stderr[-600:]}")
+        # Robust fallback without custom crop in case crop box exceeded frame bounds
+        cmd_fb = [
+            FFMPEG_BIN, "-y",
+            "-ss", str(start_time),
+            "-i", input_path,
+            "-t", str(duration),
+            "-vf", f"scale={tw}:{th}:force_original_aspect_ratio=decrease,pad={tw}:{th}:(ow-iw)/2:(oh-ih)/2",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            "-movflags", "+faststart",
+            output_path,
+        ]
+        r_fb = subprocess.run(cmd_fb, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if r_fb.returncode == 0:
+            print("[Render] ✅ 9:16 Trim & Reframe complete (fallback scale)!")
+            return True
+        print(f"[Error] FFmpeg trim fallback also failed: {r_fb.stderr[-600:]}")
+        return False
     else:
         print("[Render] ✅ 9:16 Trim & Reframe complete!")
-    return r.returncode == 0
+    return True
 
 
 def process_job(
