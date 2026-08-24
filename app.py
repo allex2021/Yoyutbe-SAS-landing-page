@@ -17,6 +17,12 @@ else:
 
 template_dir = os.path.join(BASE_DIR, "templates")
 app = Flask(__name__, template_folder=template_dir)
+
+# Silence Flask's default Werkzeug request log prints (prevents flooding log lines)
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
 CURRENT_VERSION = "3.0"
 def find_ffmpeg() -> str:
     ext = ".exe" if sys.platform == "win32" else ""
