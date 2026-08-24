@@ -638,7 +638,7 @@ def download_youtube(url: str, out_dir: str = ".") -> Optional[str]:
         browser_label = f" (using cookies from {opt[1]})" if opt else ""
         print(f"[YT-DLP] Trying download{browser_label}...")
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=env)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, env=env)
             if result.returncode == 0:
                 lines = [l.strip() for l in result.stdout.splitlines() if l.strip().endswith(".mp4")]
                 if lines:
