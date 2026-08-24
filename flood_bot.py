@@ -20,6 +20,7 @@ Previous (v2.0):
 """
 
 import os
+import sys
 import re
 import json
 import hashlib
