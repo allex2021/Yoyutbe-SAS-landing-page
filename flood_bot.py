@@ -1390,7 +1390,9 @@ def ffmpeg_render(
         FFMPEG_BIN, "-y", "-i", input_mp4,
         "-vf",  vf_string,
         "-af",  af_string,
+        "-c:v", "libx264", "-preset", "veryfast",
         "-crf", preset["crf"],
+        "-c:a", "aac", "-b:a", "192k",
         "-map_metadata", "-1",
         output_name,
     ]
@@ -1398,6 +1400,7 @@ def ffmpeg_render(
     if copyright_free:
         print("[Copyright-Free] Applying hue shift, zoom crop, speed variation, audio EQ...")
 
+    print("[FFmpeg] Encoding video with filters and captions...")
     # Run with auto-retry on failure
     result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if result.returncode != 0:
@@ -1408,6 +1411,8 @@ def ffmpeg_render(
         if result.returncode != 0:
             print(f"[Error] FFmpeg retry also failed with code {result.returncode}")
             print(f"[FFmpeg Stderr]: {result.stderr[-500:]}")
+    else:
+        print("[FFmpeg] ✅ Video encoding complete!")
 
     # Intro / Outro concat via FFmpeg
     if result.returncode == 0 and (intro_path or outro_path):
@@ -1584,14 +1589,16 @@ def ffmpeg_trim_crop(
         "-i", input_path,
         "-t", str(duration),
         "-vf", vf_string,
-        "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         output_path,
     ]
     r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
-        print(f"[FFmpeg Trim] Error:\n{r.stderr[-800:]}")
+        print(f"[FFmpeg Trim Error] Failed with code {r.returncode}:\n{r.stderr[-800:]}")
+    else:
+        print("[Render] ✅ 9:16 Trim & Reframe complete!")
     return r.returncode == 0
 
 
