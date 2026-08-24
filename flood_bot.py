@@ -323,6 +323,7 @@ def _groq_transcribe(audio_path: str, api_key: str, language: str = "en") -> Opt
             api_audio = extracted
             is_temp = True
             
+    try:
         mime = "audio/wav" if api_audio.endswith(".wav") else "audio/mp3" if api_audio.endswith(".mp3") else "audio/m4a"
         with open(api_audio, "rb") as f:
             files = {
