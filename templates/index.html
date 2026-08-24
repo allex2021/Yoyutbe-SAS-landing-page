@@ -888,6 +888,20 @@
     </div>
   </header>
 
+  <!-- Update Notification Banner -->
+  <div id="updateBanner" class="card" style="display:none; margin-bottom:20px; background:rgba(255, 0, 0, 0.08); border:1px solid rgba(255, 0, 0, 0.35); padding:16px; border-radius:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+      <div>
+        <h4 style="color:#ff0000; margin-bottom:4px; font-weight:800;">🎁 New Software Update Available!</h4>
+        <p style="color:var(--text); font-size:13.5px;" id="updateText">A new version is ready for download.</p>
+        <p style="color:var(--muted); font-size:12px; margin-top:4px;" id="updateChangelog"></p>
+      </div>
+      <div>
+        <button class="btn btn-r" onclick="startUpdate()" id="updateBtn" style="background:#ff0000; color:white; border:none; padding:8px 20px; border-radius:99px; font-weight:700; cursor:pointer;">⚡ Install Update (1-Click)</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Stats -->
   <div class="stats">
     <div class="stat" style="border:1px solid var(--border)"><div class="stat-v" id="sTotal" style="color:var(--r)">0</div><div class="stat-l">Videos Done</div></div>
@@ -2651,6 +2665,53 @@ function addViralToJobs(url) {
   // Smooth scroll to job list to show the added job
   document.getElementById('jobList').scrollIntoView({ behavior: 'smooth' });
 }
+
+// ── Check Software Update ─────────────────────────────────────────
+async function checkSoftwareUpdate() {
+  try {
+    const res = await fetch('/api/check-update');
+    const data = await res.json();
+    if (data.has_update) {
+      document.getElementById('updateText').innerHTML = `A new version <strong>v${data.remote_version}</strong> is ready for download (current version: v${data.current_version}).`;
+      if (data.changelog) {
+        document.getElementById('updateChangelog').textContent = `What's new: ${data.changelog}`;
+      }
+      document.getElementById('updateBanner').style.display = 'block';
+    }
+  } catch (e) {
+    console.error('Failed to check software update:', e);
+  }
+}
+
+async function startUpdate() {
+  const btn = document.getElementById('updateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Downloading & Installing...';
+  try {
+    const res = await fetch('/api/trigger-update', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      btn.innerHTML = '✅ Done! Restarting...';
+      alert('Update successful! The server will restart automatically. Please wait a few seconds and refresh this tab.');
+      setTimeout(() => {
+        window.location.reload();
+      }, 5000);
+    } else {
+      alert('Update failed: ' + (data.error || 'Unknown error'));
+      btn.disabled = false;
+      btn.innerHTML = '⚡ Try Again';
+    }
+  } catch (e) {
+    alert('Network error triggering update: ' + e);
+    btn.disabled = false;
+    btn.innerHTML = '⚡ Try Again';
+  }
+}
+
+// Call check update on page load
+window.addEventListener('DOMContentLoaded', () => {
+  checkSoftwareUpdate();
+});
 </script>
 
 <!-- ── Scan Directory Modal ─────────────────────────────────── -->

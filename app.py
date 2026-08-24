@@ -17,6 +17,7 @@ else:
 
 template_dir = os.path.join(BASE_DIR, "templates")
 app = Flask(__name__, template_folder=template_dir)
+CURRENT_VERSION = "3.0"
 def find_ffmpeg() -> str:
     ext = ".exe" if sys.platform == "win32" else ""
     local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
@@ -1123,6 +1124,113 @@ def youtube_upload():
             
     threading.Thread(target=upload_worker, daemon=True).start()
     return jsonify({"ok": True})
+
+
+VERSION_JSON_URL = "https://raw.githubusercontent.com/allex2021/Yoyutbe-SAS-landing-page/main/version.json"
+
+@app.route("/api/check-update")
+def check_update():
+    """Checks the remote version.json on GitHub."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            VERSION_JSON_URL, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode('utf-8'))
+        
+        remote_ver = data.get("version", "3.0")
+        changelog = data.get("changelog", "")
+        download_url = data.get("download_url", "")
+        
+        has_update = remote_ver != CURRENT_VERSION
+        return jsonify({
+            "current_version": CURRENT_VERSION,
+            "remote_version": remote_ver,
+            "has_update": has_update,
+            "changelog": changelog,
+            "download_url": download_url
+        })
+    except Exception as e:
+        return jsonify({
+            "current_version": CURRENT_VERSION,
+            "has_update": False,
+            "error": str(e)
+        })
+
+@app.route("/api/trigger-update", methods=["POST"])
+def trigger_update():
+    """Downloads the latest code ZIP, unpacks it over current files, and restarts."""
+    import urllib.request, zipfile, shutil
+    try:
+        # 1. Get latest download URL
+        req = urllib.request.Request(
+            VERSION_JSON_URL, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode('utf-8'))
+        
+        download_url = data.get("download_url")
+        if not download_url:
+            return jsonify({"success": False, "error": "No download URL found in remote metadata."})
+        
+        # 2. Download ZIP to temporary file
+        temp_zip = "update_temp.zip"
+        req_dl = urllib.request.Request(
+            download_url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        with urllib.request.urlopen(req_dl, timeout=30) as r, open(temp_zip, 'wb') as f:
+            shutil.copyfileobj(r, f)
+            
+        # 3. Unzip files over local workspace safely
+        temp_extract_dir = "update_extract_temp"
+        os.makedirs(temp_extract_dir, exist_ok=True)
+        with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+            zip_ref.extractall(temp_extract_dir)
+            
+        # Find root folder in extracted files (typically repo-main/)
+        source_dir = temp_extract_dir
+        for item in os.listdir(temp_extract_dir):
+            item_p = os.path.join(temp_extract_dir, item)
+            if os.path.isdir(item_p):
+                source_dir = item_p
+                break
+                
+        # Copy files over, except output/, .venv/, bin/, and .git/
+        for root, dirs, files in os.walk(source_dir):
+            rel_path = os.path.relpath(root, source_dir)
+            if rel_path == ".":
+                rel_path = ""
+            dest_dir = os.path.abspath(os.path.join(BASE_DIR, rel_path))
+            
+            # Skip environment, output, and git data
+            if ".venv" in rel_path or "output" in rel_path or "bin" in rel_path or ".git" in rel_path:
+                continue
+                
+            os.makedirs(dest_dir, exist_ok=True)
+            for f in files:
+                src_file = os.path.join(root, f)
+                dest_file = os.path.join(dest_dir, f)
+                shutil.copy2(src_file, dest_file)
+                
+        # 4. Clean up temporary files
+        shutil.rmtree(temp_extract_dir)
+        if os.path.exists(temp_zip):
+            os.remove(temp_zip)
+        
+        # 5. Automatically schedule restart of Flask app
+        def restart_server():
+            time.sleep(1)
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+            
+        threading.Thread(target=restart_server).start()
+        
+        return jsonify({"success": True, "msg": "Software updated successfully! Server is restarting."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 if __name__ == "__main__":
