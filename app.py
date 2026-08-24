@@ -340,6 +340,30 @@ def youtube_metadata():
         except Exception:
             continue
 
+    # Fallback: Extract video ID and build raw placeholders to avoid blocking the user
+    video_id = None
+    import re
+    patterns = [
+        r"v=([^#\&\?]+)",
+        r"youtu\.be\/([^#\&\?]+)",
+        r"shorts\/([^#\&\?]+)",
+        r"embed\/([^#\&\?]+)"
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            video_id = match.group(1)
+            break
+            
+    if video_id:
+        fallback_thumb = f"https://img.youtube.com/vi/{video_id}/0.jpg"
+        return jsonify({
+            "title": f"YouTube Video ({video_id})",
+            "duration": 180,  # 3 minutes default
+            "thumbnail": fallback_thumb,
+            "description": "YouTube Video Imported (Fallback Mode)"
+        })
+
     return jsonify({"error": "Failed to extract YouTube metadata (YouTube bot block). Try opening the link in Chrome/Safari browser first to refresh session."}), 500
 
 
