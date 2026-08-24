@@ -301,12 +301,17 @@ def youtube_metadata():
     if os.path.exists(ffmpeg_dir):
         env["PATH"] = ffmpeg_dir + os.pathsep + env.get("PATH", "")
 
-    cookie_fallback = [
+    cookies_path = os.path.join(BASE_DIR, "cookies.txt")
+    cookie_fallback = []
+    if os.path.exists(cookies_path):
+        cookie_fallback.append(["--cookies", cookies_path])
+        
+    cookie_fallback.extend([
         ["--cookies-from-browser", "chrome"],
         ["--cookies-from-browser", "safari"],
         ["--cookies-from-browser", "firefox"],
         []
-    ]
+    ])
 
     for opt in cookie_fallback:
         cmd = [
@@ -358,6 +363,7 @@ def find_viral_videos():
     if os.path.exists(ffmpeg_dir):
         env["PATH"] = ffmpeg_dir + os.pathsep + env.get("PATH", "")
 
+    cookies_path = os.path.join(BASE_DIR, "cookies.txt")
     cmd = [
         ytdlp,
         "--skip-download",
@@ -365,9 +371,11 @@ def find_viral_videos():
         "--extractor-args", "youtube:player-client=ios,android,web_creator",
         "--user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "--referer", "https://www.youtube.com/",
-        "--no-cache-dir",
-        f"ytsearch30:{keyword}"
+        "--no-cache-dir"
     ]
+    if os.path.exists(cookies_path):
+        cmd.extend(["--cookies", cookies_path])
+    cmd.append(f"ytsearch30:{keyword}")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=env)
         videos = []

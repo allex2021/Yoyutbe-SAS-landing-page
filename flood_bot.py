@@ -737,6 +737,11 @@ def download_youtube(url: str, out_dir: str = ".") -> Optional[str]:
         "--referer", "https://www.youtube.com/",
         "--no-cache-dir",
     ])
+    
+    cookies_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies.txt")
+    if os.path.exists(cookies_path):
+        cmd_base.extend(["--cookies", cookies_path])
+        print(f"[YT-DLP] Prioritising cookies.txt session file: {cookies_path}")
 
     cookie_fallback = [
         ["--cookies-from-browser", "chrome"],
