@@ -490,9 +490,56 @@ def track_and_crop(clip, video_path, start_time, end_time, target_aspect_ratio="
 
 from deep_translator import GoogleTranslator
 
-# ── Paths ──────────────────────────────────────────────────────
-FFMPEG_BIN    = os.path.expanduser("~/bin/ffmpeg")
-FFPROBE_BIN   = os.path.expanduser("~/bin/ffprobe")
+def find_ffmpeg() -> str:
+    ext = ".exe" if sys.platform == "win32" else ""
+    local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
+    
+    if getattr(sys, 'frozen', False):
+        meipass_ffmpeg = os.path.join(sys._MEIPASS, f"ffmpeg{ext}")
+        if os.path.exists(meipass_ffmpeg):
+            return meipass_ffmpeg
+
+    for p in [
+        os.path.join(local_bin, f"ffmpeg{ext}"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), f"ffmpeg{ext}"),
+        os.path.expanduser(f"~/bin/ffmpeg{ext}"),
+    ]:
+        if os.path.exists(p):
+            return p
+            
+    import shutil
+    path_bin = shutil.which("ffmpeg")
+    if path_bin:
+        return path_bin
+        
+    return f"ffmpeg{ext}"
+
+def find_ffprobe() -> str:
+    ext = ".exe" if sys.platform == "win32" else ""
+    local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
+    
+    if getattr(sys, 'frozen', False):
+        meipass_ffprobe = os.path.join(sys._MEIPASS, f"ffprobe{ext}")
+        if os.path.exists(meipass_ffprobe):
+            return meipass_ffprobe
+
+    for p in [
+        os.path.join(local_bin, f"ffprobe{ext}"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), f"ffprobe{ext}"),
+        os.path.expanduser(f"~/bin/ffprobe{ext}"),
+    ]:
+        if os.path.exists(p):
+            return p
+            
+    import shutil
+    path_bin = shutil.which("ffprobe")
+    if path_bin:
+        return path_bin
+        
+    return f"ffprobe{ext}"
+
+FFMPEG_BIN  = find_ffmpeg()
+FFPROBE_BIN = find_ffprobe()
 OUTPUT_FOLDER = "output"
 
 # ── Hook keywords that signal a viral opening ──────────────────
@@ -527,14 +574,19 @@ def download_youtube(url: str, out_dir: str = ".") -> Optional[str]:
     Downloads a YouTube video using yt-dlp.
     Returns the local file path, or None on failure.
     """
-    # Prefer local venv yt-dlp, fallback to Windows scripts, user locations, then PATH
-    ytdlp = os.path.abspath(os.path.join(os.path.dirname(__file__), ".venv", "bin", "yt-dlp"))
+    # Prefer local bin/yt-dlp, local venv yt-dlp, fallback to Windows scripts, user locations, then PATH
+    ext = ".exe" if sys.platform == "win32" else ""
+    local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
+    
+    ytdlp = os.path.abspath(os.path.join(local_bin, f"yt-dlp{ext}"))
+    if not os.path.exists(ytdlp):
+        ytdlp = os.path.abspath(os.path.join(os.path.dirname(__file__), ".venv", "bin", "yt-dlp"))
     if not os.path.exists(ytdlp):
         ytdlp = os.path.abspath(os.path.join(os.path.dirname(__file__), ".venv", "Scripts", "yt-dlp.exe"))
     if not os.path.exists(ytdlp):
         ytdlp = os.path.expanduser("~/Library/Python/3.9/bin/yt-dlp")
     if not os.path.exists(ytdlp):
-        ytdlp = "yt-dlp"
+        ytdlp = f"yt-dlp{ext}"
 
     # Setup environment with ~/bin and common Mac binary paths in PATH
     env = os.environ.copy()

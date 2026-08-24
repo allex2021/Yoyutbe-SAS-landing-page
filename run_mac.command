@@ -15,6 +15,10 @@ if [ ! -d ".venv" ]; then
     .venv/bin/pip install -r requirements.txt
 fi
 
+# Ensure local binary tools (ffmpeg, yt-dlp) are ready
+echo "🔍 Checking binary dependencies (ffmpeg, yt-dlp)..."
+.venv/bin/python3 download_binaries.py
+
 # Automatically open the browser tab once the app starts
 (sleep 2 && open "http://127.0.0.1:8080") &
 

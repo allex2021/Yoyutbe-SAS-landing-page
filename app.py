@@ -17,7 +17,31 @@ else:
 
 template_dir = os.path.join(BASE_DIR, "templates")
 app = Flask(__name__, template_folder=template_dir)
-FFMPEG_BIN    = os.path.expanduser("~/bin/ffmpeg")
+def find_ffmpeg() -> str:
+    ext = ".exe" if sys.platform == "win32" else ""
+    local_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
+    
+    if getattr(sys, 'frozen', False):
+        meipass_ffmpeg = os.path.join(sys._MEIPASS, f"ffmpeg{ext}")
+        if os.path.exists(meipass_ffmpeg):
+            return meipass_ffmpeg
+
+    for p in [
+        os.path.join(local_bin, f"ffmpeg{ext}"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), f"ffmpeg{ext}"),
+        os.path.expanduser(f"~/bin/ffmpeg{ext}"),
+    ]:
+        if os.path.exists(p):
+            return p
+            
+    import shutil
+    path_bin = shutil.which("ffmpeg")
+    if path_bin:
+        return path_bin
+        
+    return f"ffmpeg{ext}"
+
+FFMPEG_BIN = find_ffmpeg()
 
 log_queue : queue.Queue = queue.Queue()
 is_running = {"floodbot": False, "manifestbot": False}

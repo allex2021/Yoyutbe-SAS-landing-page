@@ -29,6 +29,9 @@ echo [SUCCESS] Setup completed successfully!
 echo.
 
 :LAUNCH
+echo [INFO] Checking binary dependencies (ffmpeg, yt-dlp)...
+call .venv\Scripts\python download_binaries.py
+
 echo [INFO] Launching browser to http://127.0.0.1:8080...
 start http://127.0.0.1:8080
 
