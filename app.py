@@ -450,6 +450,41 @@ def test_gemini_key():
         return jsonify({"error": f"Failed to verify API Key: {str(e)}"}), 400
 
 
+@app.route("/api/test-groq-key", methods=["POST"])
+def test_groq_key():
+    data = request.get_json()
+    key = data.get("groq_api_key", "").strip()
+    if not key:
+        return jsonify({"error": "API Key is empty!"}), 400
+    
+    import urllib.request
+    import urllib.error
+    import json
+    url = "https://api.groq.com/openai/v1/models"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            if "data" in res_data:
+                return jsonify({"ok": True, "message": "Groq API Key is valid!"})
+            else:
+                return jsonify({"error": "Unexpected response format from Groq"}), 400
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8")
+            err_data = json.loads(err_body)
+            msg = err_data.get("error", {}).get("message", err_body)
+            return jsonify({"error": f"Groq API Error ({e.code}): {msg}"}), 400
+        except Exception:
+            return jsonify({"error": f"Groq API Error ({e.code}): {e.reason}"}), 400
+    except Exception as e:
+        return jsonify({"error": f"Failed to verify Groq API Key: {str(e)}"}), 400
+
+
 @app.route("/api/open-output-folder", methods=["POST"])
 def open_output_folder():
     try:
@@ -476,6 +511,7 @@ def run_floodbot():
     data = request.get_json()
     jobs = data.get("jobs", [])
     gemini_api_key = data.get("gemini_api_key", "").strip()
+    groq_api_key = data.get("groq_api_key", "").strip()
     output_folder = data.get("output_folder", "").strip() or OUTPUT_FOLDER
     output_folder = os.path.expanduser(output_folder)
 
@@ -552,7 +588,7 @@ def run_floodbot():
                     # If multi-clip mode is selected (top_n > 1) and use_hook is True
                     if use_hook and top_n > 1:
                         push_log(f"[Hook] Detecting top {top_n} viral hook moments...", "info")
-                        hooks = fb.detect_top_hooks(local_video_path, clip_duration=hook_duration, top_n=top_n, gemini_api_key=gemini_api_key)
+                        hooks = fb.detect_top_hooks(local_video_path, clip_duration=hook_duration, top_n=top_n, gemini_api_key=gemini_api_key, groq_api_key=groq_api_key)
                         
                         base_out, ext = os.path.splitext(out_name)
                         
@@ -589,6 +625,7 @@ def run_floodbot():
                                 audio_speed   = audio_speed,
                                 audio_pitch   = audio_pitch,
                                 copyright_free= copyright_free,
+                                groq_api_key  = groq_api_key,
                             )
                             push_log(f"✅ Clip {h_idx} {'done' if ok else 'failed'} → {os.path.basename(clip_out_name)}", "success" if ok else "error")
                     else:
@@ -622,6 +659,7 @@ def run_floodbot():
                             audio_speed   = audio_speed,
                             audio_pitch   = audio_pitch,
                             copyright_free= copyright_free,
+                            groq_api_key  = groq_api_key,
                         )
                         push_log(f"✅ Job {i} {'done' if ok else 'failed'} → {os.path.basename(out_name)}", "success" if ok else "error")
                 finally:
@@ -655,6 +693,7 @@ def evaluate_virality_route():
     video_path   = data.get("video_path", "").strip()
     youtube_url  = data.get("youtube_url", "").strip() or None
     gemini_key   = data.get("gemini_api_key", "").strip()
+    groq_api_key = data.get("groq_api_key", "").strip()
     
     if not gemini_key:
         return jsonify({"error": "Gemini API key is required for virality evaluation!"}), 400
@@ -678,7 +717,7 @@ def evaluate_virality_route():
             return jsonify({"error": f"Video file not found at: {video_path_local}"}), 404
             
         push_log(f"[Virality] Evaluating virality for: {os.path.basename(video_path_local)}...", "info")
-        evaluation = fb.evaluate_virality(video_path_local, gemini_key)
+        evaluation = fb.evaluate_virality(video_path_local, gemini_key, groq_api_key=groq_api_key)
         return jsonify(evaluation)
     except Exception as ex:
         return jsonify({"error": str(ex)}), 500
@@ -693,6 +732,7 @@ def detect_hooks_api():
     clip_duration= int(data.get("clip_duration", 30))
     top_n        = int(data.get("top_n", 5))
     gemini_key   = data.get("gemini_api_key", "").strip()
+    groq_api_key = data.get("groq_api_key", "").strip()
 
     def worker():
         is_running["floodbot"] = True
@@ -713,7 +753,7 @@ def detect_hooks_api():
                 else:
                     video_path_local = video_path
 
-                hooks = fb.detect_top_hooks(video_path_local, clip_duration=clip_duration, top_n=top_n, gemini_api_key=gemini_key)
+                hooks = fb.detect_top_hooks(video_path_local, clip_duration=clip_duration, top_n=top_n, gemini_api_key=gemini_key, groq_api_key=groq_api_key)
                 for idx, (s, e, sc) in enumerate(hooks, 1):
                     push_log(f"🎯 Hook #{idx}: {s:.1f}s → {e:.1f}s  |  Virality Score: {sc:.1f}", "success")
                 push_log(f"✅ Found {len(hooks)} hook moment(s)!", "success")

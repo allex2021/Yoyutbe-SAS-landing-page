@@ -204,13 +204,13 @@ def translate_and_dub(video_path: str, segments: list, target_lang: str, output_
     return r.returncode == 0
 
 # ── Virality Analysis ───────────────────────────────────────────
-def evaluate_virality(video_path: str, gemini_api_key: str) -> dict:
+def evaluate_virality(video_path: str, gemini_api_key: str, groq_api_key: str = "") -> dict:
     """Queries Gemini to grade the hook and transcript virality."""
     if not gemini_api_key:
         return {"error": "API Key is required!"}
     try:
         model = get_model()
-        result = _fw_transcribe(model, video_path, language="en")
+        result = _fw_transcribe(model, video_path, language="en", groq_api_key=groq_api_key)
         segments_list = []
         for seg in result["segments"]:
             segments_list.append(f"[{seg['start']:.1f}s - {seg['end']:.1f}s]: {seg['text'].strip()}")
@@ -277,13 +277,125 @@ if os.path.exists(ffmpeg_dir):
 # faster-whisper: 4-8x faster than openai-whisper, works offline, no API key needed
 from faster_whisper import WhisperModel as _FasterWhisperModel
 
-def _fw_transcribe(model, audio_path: str, language: str = "en", use_cache: bool = True) -> dict:
-    """Transcribe with faster-whisper. Checks file-based cache first."""
+def extract_audio_for_api(video_path: str) -> Optional[str]:
+    """Extracts audio channel from video as a highly compressed mono MP3 for API upload."""
+    import tempfile
+    temp_audio = os.path.join(tempfile.gettempdir(), f"temp_audio_{os.path.basename(video_path)}.mp3")
+    if os.path.exists(temp_audio):
+        try:
+            os.remove(temp_audio)
+        except Exception:
+            pass
+            
+    cmd = [
+        FFMPEG_BIN, "-y",
+        "-i", video_path,
+        "-vn",                  # disable video
+        "-acodec", "libmp3lame",
+        "-ac", "1",             # mono
+        "-ar", "16000",         # 16kHz
+        "-ab", "32k",           # 32kbps (extremely light!)
+        temp_audio
+    ]
+    try:
+        r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, timeout=30)
+        if r.returncode == 0 and os.path.exists(temp_audio):
+            return temp_audio
+    except Exception as e:
+        print(f"[ExtractAudio Error] {e}")
+    return None
+
+def _groq_transcribe(audio_path: str, api_key: str, language: str = "en") -> Optional[dict]:
+    """Transcribes audio using Groq Cloud Whisper API with verbose_json response."""
+    import requests
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
+    
+    # Extract audio if it is a video file or if it's too heavy
+    api_audio = audio_path
+    is_temp = False
+    if not audio_path.lower().endswith((".mp3", ".wav", ".m4a", ".ogg")):
+        extracted = extract_audio_for_api(audio_path)
+        if extracted:
+            api_audio = extracted
+            is_temp = True
+            
+    try:
+        with open(api_audio, "rb") as f:
+            files = {
+                "file": (os.path.basename(api_audio), f, "audio/mp3")
+            }
+            data = {
+                "model": "whisper-large-v3-turbo",
+                "response_format": "verbose_json"
+            }
+            if language:
+                data["language"] = language
+                
+            print(f"[Groq API] Uploading audio channel ({os.path.basename(api_audio)})...")
+            r = requests.post(url, headers=headers, files=files, data=data, timeout=60)
+            
+        if r.status_code == 200:
+            res_data = r.json()
+            out_segments = []
+            
+            for idx, seg in enumerate(res_data.get("segments", [])):
+                words = seg.get("words", [])
+                if not words:
+                    seg_text = seg.get("text", "").strip()
+                    words_list = seg_text.split()
+                    if words_list:
+                        seg_dur = seg["end"] - seg["start"]
+                        word_dur = seg_dur / len(words_list)
+                        for w_idx, w in enumerate(words_list):
+                            words.append({
+                                "word": w,
+                                "start": seg["start"] + w_idx * word_dur,
+                                "end": seg["start"] + (w_idx + 1) * word_dur,
+                                "probability": 1.0
+                            })
+                            
+                out_segments.append({
+                    "id": seg.get("id", idx),
+                    "start": seg["start"],
+                    "end": seg["end"],
+                    "text": seg.get("text", "").strip(),
+                    "words": words
+                })
+                
+            return {"segments": out_segments}
+        else:
+            print(f"[Groq API Error] HTTP {r.status_code}: {r.text}")
+            return None
+    except Exception as e:
+        print(f"[Groq API Exception] {e}")
+        return None
+    finally:
+        if is_temp and os.path.exists(api_audio):
+            try:
+                os.remove(api_audio)
+            except Exception:
+                pass
+
+def _fw_transcribe(model, audio_path: str, language: str = "en", use_cache: bool = True, groq_api_key: Optional[str] = None) -> dict:
+    """Transcribe with Groq API (if key available) or fallback to faster-whisper."""
     if use_cache:
         cached = _load_cached_transcript(audio_path)
         if cached:
             return cached
 
+    if groq_api_key:
+        print("[Whisper] Using Groq Cloud API for ultra-fast transcription...")
+        result = _groq_transcribe(audio_path, groq_api_key, language)
+        if result:
+            if use_cache:
+                _save_cached_transcript(audio_path, result)
+            return result
+        print("[Whisper] Groq API transcription failed, falling back to local model...")
+
+    print("[Whisper] Running local faster-whisper transcription on CPU/GPU...")
     segments_iter, _info = model.transcribe(
         audio_path, language=language, word_timestamps=True, beam_size=5
     )
@@ -732,7 +844,7 @@ def query_gemini_api(api_key: str, prompt: str, system_instruction: str = None) 
             print(f"[Gemini API] Error calling Gemini: {e}")
             break
 
-def detect_hook(video_path: str, clip_duration: int = 30, gemini_api_key: str = "") -> Tuple[float, float]:
+def detect_hook(video_path: str, clip_duration: int = 30, gemini_api_key: str = "", groq_api_key: str = "") -> Tuple[float, float]:
     """Analyses the video audio + transcript to find the best viral hook moment.
     Returns (hook_start, hook_end) in seconds. Falls back to (0, clip_duration) if detection fails."""
     try:
@@ -758,7 +870,7 @@ def detect_hook(video_path: str, clip_duration: int = 30, gemini_api_key: str = 
 
         # Transcribe with faster-whisper
         model = get_model()
-        result = _fw_transcribe(model, video_path, language="en")
+        result = _fw_transcribe(model, video_path, language="en", groq_api_key=groq_api_key)
 
         # Gemini-based hook detection
         ENABLE_GEMINI = True  # Set to False to skip Gemini and use heuristic only
@@ -862,6 +974,7 @@ def detect_top_hooks(
     clip_duration: int = 30,
     top_n: int = 3,
     gemini_api_key: str = "",
+    groq_api_key: str = "",
 ) -> List[Tuple[float, float, float]]:
     """
     Detects the top N non-overlapping viral hook moments.
@@ -888,7 +1001,7 @@ def detect_top_hooks(
         clip.close()
 
         model = get_model()
-        result = _fw_transcribe(model, video_path, language="en")
+        result = _fw_transcribe(model, video_path, language="en", groq_api_key=groq_api_key)
 
         # Score every window
         all_windows: List[Tuple[float, float, float]] = []
@@ -986,10 +1099,11 @@ def generate_srt(
     lang: str = "en",
     style: Optional[dict] = None,
     beat_times: Optional[List[float]] = None,
+    groq_api_key: str = "",
 ) -> None:
     """Transcribes and writes a kinetic SRT file with karaoke word highlights and optional beat-sync snapping."""
     model  = get_model()
-    result = _fw_transcribe(model, video_path, language="en")
+    result = _fw_transcribe(model, video_path, language="en", groq_api_key=groq_api_key)
 
     translator = None
     if lang != "en" and srt_path:
@@ -1508,6 +1622,7 @@ def process_job(
     audio_speed  : float = 1.03,
     audio_pitch  : float = 1.1,
     copyright_free: bool = False,
+    groq_api_key: str = "",
 ) -> bool:
     """Processes a single video editing job."""
     if style is None:
@@ -1534,7 +1649,7 @@ def process_job(
     # ── Step 1: Hook detection or manual timestamps ────────────
     if use_hook:
         print("[Hook] Finding best viral moment...")
-        start_time, end_time = detect_hook(video_path, clip_duration=hook_duration, gemini_api_key=gemini_api_key)
+        start_time, end_time = detect_hook(video_path, clip_duration=hook_duration, gemini_api_key=gemini_api_key, groq_api_key=groq_api_key)
     else:
         start_time = start_time or 0.0
         end_time   = end_time   or hook_duration
@@ -1612,7 +1727,7 @@ def process_job(
         print(f"[Dubbing] Generating target voiceover for: {dub_lang}...")
         tmp_dub = f"_tmp_dub_{job_idx}.wav"
         model = get_model()
-        result = _fw_transcribe(model, tmp_mp4, language="en")
+        result = _fw_transcribe(model, tmp_mp4, language="en", groq_api_key=groq_api_key)
         dub_ok = translate_and_dub(tmp_mp4, result["segments"], dub_lang, tmp_dub)
         if dub_ok and os.path.exists(tmp_dub):
             tmp_dubbed_mp4 = f"_tmp_dubbed_{job_idx}.mp4"
@@ -1635,7 +1750,7 @@ def process_job(
     if auto_bleep or sensor_blur:
         print("[Profanity] Scanning transcript for swear words...")
         model = get_model()
-        result = _fw_transcribe(model, tmp_mp4, language="en")
+        result = _fw_transcribe(model, tmp_mp4, language="en", groq_api_key=groq_api_key)
         censored_intervals = detect_profanity_intervals(result["segments"])
         if censored_intervals:
             print(f"[Profanity] ⚠️ Detected {len(censored_intervals)} swear word(s). Censorship active.")
@@ -1654,7 +1769,7 @@ def process_job(
     transcript_path = output_name.replace(".mp4", "_transcript.txt")
     if burn_captions or gemini_api_key:
         print(f"[Captions] Transcribing {'+ translating to ' + caption_lang if (burn_captions and caption_lang != 'en') else ''}...")
-        generate_srt(tmp_mp4, srt_path=tmp_srt, transcript_path=transcript_path, lang=caption_lang, style=style, beat_times=beat_times)
+        generate_srt(tmp_mp4, srt_path=tmp_srt, transcript_path=transcript_path, lang=caption_lang, style=style, beat_times=beat_times, groq_api_key=groq_api_key)
 
     # ── Step 4: FFmpeg render (style + watermark + quality + censorship + copyright bypass)
     print(f"[4/5] FFmpeg final render at {quality}...")
@@ -1794,7 +1909,7 @@ def process_copyright_free_video(
         return False
 
 
-def run_bulk(jobs: list[dict]) -> None:
+def run_bulk(jobs: list[dict], gemini_api_key: str = "", groq_api_key: str = "") -> None:
     """Run a list of job dicts. Each dict mirrors process_job kwargs."""
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     total = len(jobs)
@@ -1804,6 +1919,10 @@ def run_bulk(jobs: list[dict]) -> None:
         job.setdefault("job_idx",    i)
         job.setdefault("total_jobs", total)
         job.setdefault("output_name", os.path.join(OUTPUT_FOLDER, f"short_{i:02d}.mp4"))
+        if gemini_api_key:
+            job["gemini_api_key"] = gemini_api_key
+        if groq_api_key:
+            job["groq_api_key"] = groq_api_key
         result = process_job(**job)
         if result: ok_n += 1
         else:      fail_n += 1
