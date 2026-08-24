@@ -1225,6 +1225,43 @@
         <button class="btn btn-p btn-full" id="runMbBtn" onclick="runManifestBot()">📋 Generate Metadata</button>
       </div>
 
+      <!-- 🎙️ AI Voiceover Generator (Edge-TTS) -->
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">🎙️ AI Voiceover Generator (Edge-TTS)</div>
+          <span class="badge badge-g">Neural TTS</span>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+          Convert scripts into hyper-realistic human voiceovers using Microsoft's neural network, completely free with no API limits!
+        </p>
+        <div class="f1">
+          <label>Script Text</label>
+          <textarea id="ttsText" placeholder="Enter script here..." style="width:100%;height:60px;background:rgba(0,0,0,0.25);border:1px solid var(--border);color:white;padding:8px;border-radius:var(--rsm);font-size:12px;resize:none;margin-bottom:8px"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <div style="flex:1">
+            <label style="font-size:10px">Select Neural Voice</label>
+            <select id="ttsVoice" style="width:100%;background:#13131f;border:1px solid var(--border);color:white;padding:6px;border-radius:var(--rsm);font-size:11px">
+              <option value="en-US-GuyNeural">English (US) - Male (Guy)</option>
+              <option value="en-US-AnaNeural">English (US) - Female (Ana)</option>
+              <option value="en-GB-RyanNeural">English (UK) - Male (Ryan)</option>
+              <option value="en-GB-SoniaNeural">English (UK) - Female (Sonia)</option>
+              <option value="bn-BD-PradeepNeural">Bengali (BD) - Male (Pradeep)</option>
+              <option value="bn-BD-NabanitaNeural">Bengali (BD) - Female (Nabanita)</option>
+              <option value="hi-IN-MadhurNeural">Hindi (IN) - Male (Madhur)</option>
+              <option value="hi-IN-SwaraNeural">Hindi (IN) - Female (Swara)</option>
+              <option value="es-ES-AlvaroNeural">Spanish (ES) - Male (Alvaro)</option>
+              <option value="es-ES-ElviraNeural">Spanish (ES) - Female (Elvira)</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:10px">Output File Name</label>
+            <input type="text" id="ttsFilename" value="voiceover.mp3" placeholder="voiceover.mp3" style="width:100%;font-size:11px;padding:6px"/>
+          </div>
+        </div>
+        <button class="btn btn-b btn-full" id="btnTts" onclick="generateVoiceover()">🎙️ Generate Voiceover</button>
+      </div>
+
       <!-- 🛡️ Long Video Copyright Cleaner -->
       <div class="card" style="border:1px solid rgba(255,0,0,0.25);background:rgba(255,0,0,0.01)">
         <div class="card-hdr">
@@ -2021,6 +2058,46 @@ async function runFloodBot() {
   });
   const d = await res.json();
   if(d.error){ addLog('⚠️ '+d.error,'warn'); btn.disabled=false; btn.innerHTML='🚀 Run FloodBot'; }
+}
+
+// ── AI Voiceover Generator (Edge-TTS) ────────────────────────
+async function generateVoiceover() {
+  const text = document.getElementById('ttsText').value.trim();
+  const voice = document.getElementById('ttsVoice').value;
+  const filename = document.getElementById('ttsFilename').value.trim();
+  
+  if(!text) {
+    alert('Please enter some script text first!');
+    return;
+  }
+  
+  const btn = document.getElementById('btnTts');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Generating Voiceover…';
+  addLog("🎙️ Starting Neural voiceover generation...", "info");
+  
+  try {
+    const res = await fetch('/api/generate-tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice, filename })
+    });
+    
+    const d = await res.json();
+    if(d.ok) {
+      addLog(`✅ Voiceover generated successfully! Saved to: ${d.filename}`, "success");
+      alert(`✅ Success! Voiceover file saved as: ${d.filename}\nYou can now use this audio file in your jobs.`);
+    } else {
+      addLog(`❌ TTS Error: ${d.error}`, "error");
+      alert(`❌ Error: ${d.error}`);
+    }
+  } catch(e) {
+    addLog(`❌ Connection error: ${e.message}`, "error");
+    alert(`❌ Connection error: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🎙️ Generate Voiceover';
+  }
 }
 
 // ── Process Long Video (Copyright-Free) ────────────────────────

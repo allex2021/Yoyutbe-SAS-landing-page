@@ -485,6 +485,46 @@ def test_groq_key():
         return jsonify({"error": f"Failed to verify Groq API Key: {str(e)}"}), 400
 
 
+@app.route("/api/generate-tts", methods=["POST"])
+def generate_tts_api():
+    """Generates voiceover using Microsoft Edge-TTS."""
+    data = request.get_json() or {}
+    text = data.get("text", "").strip()
+    voice = data.get("voice", "en-US-GuyNeural").strip()
+    output_filename = data.get("filename", "voiceover.mp3").strip()
+    
+    if not text:
+        return jsonify({"error": "Text is required to generate speech!"}), 400
+        
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    if not output_filename.endswith((".mp3", ".wav", ".m4a", ".ogg")):
+        output_filename += ".mp3"
+        
+    output_path = os.path.join(OUTPUT_FOLDER, os.path.basename(output_filename))
+    
+    import asyncio
+    import edge_tts
+    
+    async def run_tts():
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(output_path)
+        
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(run_tts())
+        loop.close()
+        
+        return jsonify({
+            "ok": True,
+            "message": "Successfully generated voiceover!",
+            "path": output_path,
+            "filename": os.path.basename(output_path)
+        })
+    except Exception as e:
+        return jsonify({"error": f"TTS Generation failed: {str(e)}"}), 500
+
+
 @app.route("/api/open-output-folder", methods=["POST"])
 def open_output_folder():
     try:
